@@ -18,12 +18,14 @@ This spec covers the full end-to-end payment flow for Study Material Exchange In
 
 **In scope:**
 - Seller Razorpay Route account onboarding (pre-listing gate)
-- `POST /payments/verify-passkey` — passkey check + payment link generation in one request
+- `POST /payments/onboard` — create Razorpay linked account, return KYC URL
+- `POST /payments/onboard/complete` — verify KYC completion, save `razorpay_account_id`
+- `POST /payments/verify-passkey` — passkey check (Spec 08) + payment link generation
 - `POST /payments/webhook` — HMAC signature verification, idempotency, race-condition handling, refunds
 - `GET /transactions/{id}/status` — buyer polling endpoint
 - APScheduler Job 1 — cancel abandoned transactions + conditional seller email
 - Frontend passkey input, redirect to Razorpay, polling-based status page
-- Passkey regeneration on seller dashboard
+- Seller email resolution via Supabase service role (`auth.users`)
 
 **Out of scope:**
 - Platform fee (config exists, value is 0% in v1)
@@ -32,6 +34,7 @@ This spec covers the full end-to-end payment flow for Study Material Exchange In
 - Refund initiated by seller or admin (only auto-refund on concurrent/late webhook)
 - Automated moderation
 - Shipping or delivery tracking
+- Passkey regeneration — fully defined in Spec 08
 
 ---
 
@@ -57,10 +60,12 @@ Frontend disables "Create Listing" if `razorpay_account_id` is null on the user 
 ```jsx
 // frontend/components/listings/CreateListingButton.jsx
 'use client'
+import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 
 export default function CreateListingButton() {
+  const router = useRouter()
   const { data: me } = useQuery({
     queryKey: ['me'],
     queryFn: () => api.get('/users/me').then(r => r.data)
@@ -91,11 +96,15 @@ export default function CreateListingButton() {
 
 ```
 Seller clicks "Connect Payment Account"
-→ Backend calls Razorpay Route API to create linked account
-→ Redirects seller to Razorpay KYC URL
-→ On completion, Razorpay webhook (account.activated) fires
-→ Backend saves razorpay_account_id to users table
+→ POST /payments/onboard creates Razorpay linked account, returns KYC URL
+→ Seller completes KYC on Razorpay
+→ Razorpay fires account.activated webhook
+→ Backend saves razorpay_account_id to users table (only now is the gate open)
 ```
+
+`razorpay_account_id` is **not** saved at account-creation time. It is saved only when the `account.activated` webhook fires — KYC must be complete before the seller can list.
+
+#### POST /payments/onboard
 
 ```python
 # backend/app/routers/payments.py
@@ -115,17 +124,79 @@ async def onboard_seller(
         "legal_business_name": seller.full_name,
         "business_type": "individual"
     })
-
-    seller.razorpay_account_id = account["id"]
-    await db.commit()
+    # Do NOT save account["id"] here — KYC is not yet complete.
+    # razorpay_account_id is set by the account.activated webhook handler.
 
     onboarding_url = razorpay_client.stakeholder.create(
         account["id"], {}
     )["url"]
 
-    logger.info("Razorpay onboarding initiated for seller=%s", seller_id)
-    return {"onboarding_url": onboarding_url}
+    logger.info("Razorpay onboarding started for seller=%s account=%s", seller_id, account["id"])
+    return {"onboarding_url": onboarding_url, "razorpay_account_id": account["id"]}
 ```
+
+#### account.activated webhook handler
+
+Razorpay fires `account.activated` when the seller completes KYC. This is handled inside the existing `POST /payments/webhook` endpoint by adding a branch before the `payment_link.paid` check:
+
+```python
+# Inside handle_webhook, after signature verification and payload parse:
+
+ROUTE_ACCOUNT_ACTIVATED = "account.activated"
+
+if event == ROUTE_ACCOUNT_ACTIVATED:
+    account_id = payload["payload"]["account"]["entity"]["id"]
+    email = payload["payload"]["account"]["entity"]["email"]
+
+    # Match seller by email — Razorpay account was created with seller's email
+    result = await db.execute(
+        select(User).where(User.email_for_lookup == email)
+    )
+    # public.users has no email column — use the supabase service role to look up by email
+    # Resolved via: supabase_admin.auth.admin.list_users() filtered by email
+    # Then match to public.users by id
+    # See implementation note below.
+
+    logger.info("account.activated: razorpay_account=%s", account_id)
+    # Implementation: see "Email-to-user resolution for account.activated" below
+    return Response(status_code=200)
+```
+
+#### Email-to-user resolution for account.activated
+
+`public.users` has no email column. The seller's email must be resolved from `auth.users` via the Supabase service role. The `POST /payments/onboard` response already returns `razorpay_account_id` to the frontend — store it in the browser session temporarily (not localStorage; use React state or sessionStorage scoped to the onboarding flow) so that the frontend can call a completion-poll endpoint.
+
+**Simpler approach (recommended for v1):** Skip `account.activated` webhook. Instead, have the frontend call `POST /payments/onboard/complete` after Razorpay redirects back, passing the `razorpay_account_id` that was returned from the initial onboard call. The backend verifies the account status via Razorpay API before saving:
+
+```python
+class OnboardCompleteRequest(BaseModel):
+    razorpay_account_id: str
+
+@router.post("/payments/onboard/complete")
+async def complete_onboarding(
+    body: OnboardCompleteRequest,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(verify_token)
+):
+    seller_id = user["sub"]
+    seller = await db.get(User, seller_id)
+    if seller.razorpay_account_id:
+        return {"status": "already_complete"}
+
+    # Verify account status with Razorpay before granting access
+    account = razorpay_client.account.fetch(body.razorpay_account_id)
+    if account.get("profile", {}).get("status") != "activated":
+        raise HTTPException(400, "Razorpay account KYC not yet complete. Please finish verification.")
+
+    seller.razorpay_account_id = body.razorpay_account_id
+    await db.commit()
+
+    logger.info("Seller onboarding complete: seller=%s razorpay_account=%s",
+                seller_id, body.razorpay_account_id)
+    return {"status": "complete"}
+```
+
+The frontend calls `POST /payments/onboard/complete` after Razorpay redirects to the return URL. If status is not `activated`, it shows "Please complete your KYC on Razorpay." and offers a retry button. The gate (`razorpay_account_id IS NOT NULL`) is only satisfied after this call succeeds.
 
 `users` table requires an additional column:
 
@@ -166,31 +237,9 @@ The plaintext passkey is returned in the API response once and is never stored. 
 
 ## Passkey regeneration
 
-Seller can regenerate the passkey from their dashboard. Old hash is overwritten. Old passkey is permanently unrecoverable.
+Passkey regeneration is fully defined in **Spec 08 — Passkey**, section "Passkey Regeneration". The endpoint is `PATCH /listings/{id}/passkey` (protected, seller only). It blocks regeneration when `listing.passkey_invalidated = TRUE` (sold listings). Paused listings (`is_available=FALSE, passkey_invalidated=FALSE`) allow regeneration.
 
-```python
-# backend/app/routers/listings.py
-@router.post("/listings/{listing_id}/regenerate-passkey")
-async def regenerate_passkey(
-    listing_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    user=Depends(verify_token)
-):
-    seller_id = user["sub"]
-    listing = await db.get(Listing, listing_id)
-
-    if not listing or listing.seller_id != seller_id:
-        raise HTTPException(403, "Not your listing.")
-    if not listing.is_available:
-        raise HTTPException(400, "Cannot regenerate passkey for unavailable listing.")
-
-    passkey = str(secrets.randbelow(100_000_000)).zfill(8)
-    listing.passkey_hash = hash_passkey(passkey, str(listing.id))
-    await db.commit()
-
-    logger.info("Passkey regenerated: listing=%s seller=%s", listing_id, seller_id)
-    return {"passkey": passkey}
-```
+This spec does not redefine that endpoint. Implement it as specified in Spec 08.
 
 ---
 
@@ -262,52 +311,39 @@ export default function BuyNowSection({ listingId }) {
 
 ## POST /payments/verify-passkey
 
-Passkey verification and payment initiation happen in a single request. Checks run in strict order — stop on first failure.
+Passkey validation (checks 1–3) is fully defined in **Spec 08 — Passkey**. This section defines only the payment-initiation logic that runs after a correct passkey is confirmed. The checks from Spec 08 must be applied first, in order, before the code below runs.
+
+### Check ordering (from Spec 08 — do not reorder)
+
+1. Listing exists and not sold (`passkey_invalidated=FALSE`) → 400 "This listing has already been sold."
+2. Listing not paused (`is_available=TRUE`) → 400 "This listing is temporarily unavailable."
+3. Buyer is not the listing's seller → 403 "You cannot purchase your own listing."
+4. Redis block check (attempts ≥ 3) → 403 "You have been blocked from purchasing this listing."
+5. HMAC passkey verification → 400 `"Incorrect passkey. {remaining} attempts remaining."` or 403 on third failure.
+
+All five checks pass → proceed to `payment_service.initiate_payment`.
+
+### payment_service.initiate_payment
 
 ```python
-# backend/app/routers/payments.py
-from pydantic import BaseModel
-from uuid import UUID
+# backend/app/services/payment_service.py
+import math
+import logging
+from datetime import datetime, timedelta
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update
+from app.models.transaction import Transaction
+from app.models.listing import Listing
+from app.core.config import settings
+import razorpay
 
-class VerifyPasskeyRequest(BaseModel):
-    listing_id: UUID
-    passkey: str
+logger = logging.getLogger(__name__)
+razorpay_client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
 
-@router.post("/payments/verify-passkey")
-async def verify_passkey_and_initiate(
-    body: VerifyPasskeyRequest,
-    db: AsyncSession = Depends(get_db),
-    user=Depends(verify_token)
-):
-    buyer_id = user["sub"]
-    listing_id = body.listing_id
+async def initiate_payment(db: AsyncSession, listing: Listing, buyer_id: str) -> dict:
+    listing_id = listing.id
 
-    # Check 1 — listing availability
-    listing = await db.get(Listing, listing_id)
-    if not listing or not listing.is_available or listing.passkey_invalidated:
-        raise HTTPException(400, "This listing has already been sold.")
-
-    # Check 2 — buyer not blocked
-    attempts_key = f"passkey_attempts:{listing_id}:{buyer_id}"
-    attempts = await redis.get(attempts_key)
-    if attempts and int(attempts) >= 3:
-        raise HTTPException(403, "You have been blocked from purchasing this listing.")
-
-    # Check 3 — verify passkey hash (constant-time)
-    if not verify_passkey(body.passkey, str(listing_id), listing.passkey_hash):
-        pipe = redis.pipeline()
-        pipe.incr(attempts_key)
-        pipe.expire(attempts_key, 604800)  # 7 days
-        count, _ = await pipe.execute()
-
-        remaining = max(0, 3 - count)
-        if remaining == 0:
-            raise HTTPException(403, "You have been blocked from purchasing this listing.")
-        raise HTTPException(400, f"Incorrect passkey. {remaining} attempts remaining.")
-
-    # Passkey correct — proceed to payment initiation
-
-    # Idempotency: return existing link if one exists
+    # Idempotency: return existing link if one is already initiated for this buyer+listing
     existing = await db.execute(
         select(Transaction).where(
             Transaction.listing_id == listing_id,
@@ -320,7 +356,8 @@ async def verify_passkey_and_initiate(
         logger.info("Returning existing payment link: transaction=%s", existing.id)
         return {"payment_link_url": existing.razorpay_payment_link_url}
 
-    # Acquire row lock
+    # Acquire row lock — minor concurrent write guard
+    # Real winner-selection happens in webhook Step 8
     locked = await db.execute(
         select(Listing)
         .where(
@@ -331,10 +368,11 @@ async def verify_passkey_and_initiate(
         .with_for_update(skip_locked=True)
     )
     if not locked.scalar_one_or_none():
+        from fastapi import HTTPException
         raise HTTPException(409, "This listing was just sold. You have not been charged.")
 
-    # Create transaction row
-    platform_fee = 0  # 0% in v1; use math.floor(amount * rate) when introduced
+    # Platform fee: 0% in v1. Use math.floor(amount * rate) when introduced.
+    platform_fee = 0
     transaction = Transaction(
         listing_id=listing_id,
         buyer_id=buyer_id,
@@ -345,17 +383,17 @@ async def verify_passkey_and_initiate(
         status='initiated'
     )
     db.add(transaction)
-    await db.flush()
+    await db.flush()  # get transaction.id before Razorpay call
 
-    # Generate Razorpay Payment Link (15-minute expiry)
+    # Generate Razorpay Payment Link — 15-minute expiry
     expire_at = datetime.utcnow() + timedelta(minutes=15)
     payment_link = razorpay_client.payment_link.create({
-        "amount": transaction.amount_rupees * 100,  # paise — only here
+        "amount": transaction.amount_rupees * 100,  # paise — only at this boundary
         "currency": "INR",
         "expire_by": int(expire_at.timestamp()),
         "description": f"Study material: {listing.title}",
         "notify": {"sms": False, "email": False},
-        "callback_url": f"{FRONTEND_URL}/transactions/{transaction.id}/status",
+        "callback_url": f"{settings.FRONTEND_URL}/transactions/{transaction.id}/status",
         "callback_method": "get"
     })
 
@@ -369,6 +407,27 @@ async def verify_passkey_and_initiate(
     )
     return {"payment_link_url": payment_link["short_url"]}
 ```
+
+### Endpoint (in payments router)
+
+```python
+# backend/app/routers/payments.py
+from app.schemas.payment import VerifyPasskeyRequest, VerifyPasskeyResponse
+from app.services import payment_service
+
+@router.post("/payments/verify-passkey", response_model=VerifyPasskeyResponse)
+async def verify_passkey_endpoint(
+    data: VerifyPasskeyRequest,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(verify_token),
+    redis=Depends(get_redis),
+):
+    # Passkey checks 1–5 (see Spec 08) run here.
+    # On success, delegate to payment initiation:
+    return await payment_service.initiate_payment(db, listing, buyer_id)
+```
+
+Schemas (`VerifyPasskeyRequest`, `VerifyPasskeyResponse`) are defined in Spec 08 at `backend/app/schemas/payment.py`.
 
 ---
 
@@ -643,22 +702,87 @@ app = FastAPI(lifespan=lifespan)
 
 Two email types for payments:
 
-### Sale complete (buyer + seller)
+### Resolving seller email
+
+`public.users` has no email column — AUTH.md: "No email, no password_hash, no phone — Supabase Auth owns identity." Email must be resolved from `auth.users` via the Supabase service role key.
+
+**In webhook handler** (has no JWT): use `SUPABASE_SERVICE_ROLE_KEY` to query `auth.users`.
+**In APScheduler job** (also has no JWT): same approach.
+
+Both callers must resolve email before calling notification functions. The notification functions accept `seller_email: str` as an explicit argument — they do not resolve it themselves.
+
+```python
+# backend/app/core/supabase_admin.py
+import os
+from supabase import create_client
+
+_admin_client = None
+
+def get_supabase_admin():
+    global _admin_client
+    if _admin_client is None:
+        _admin_client = create_client(
+            os.getenv("NEXT_PUBLIC_SUPABASE_URL"),
+            os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        )
+    return _admin_client
+
+async def fetch_user_email(user_id: str) -> str | None:
+    """Fetch email from auth.users using service role. For background jobs and webhook only."""
+    admin = get_supabase_admin()
+    try:
+        response = admin.auth.admin.get_user_by_id(user_id)
+        return response.user.email if response.user else None
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error("Failed to fetch email for user=%s: %s", user_id, str(e))
+        return None
+```
+
+**Webhook handler** — resolve email after Step 8:
+
+```python
+# After db.commit() in successful webhook path:
+from app.core.supabase_admin import fetch_user_email
+
+seller_email = await fetch_user_email(str(transaction.seller_id))
+if seller_email:
+    await notification_service.send_sale_complete(transaction, seller_email)
+else:
+    logger.warning("Could not resolve seller email for transaction=%s", transaction.id)
+```
+
+**APScheduler job** — resolve email per transaction:
+
+```python
+for txn in transactions:
+    txn.status = 'cancelled'
+
+    notified_key = f"abandoned_notified:{txn.listing_id}"
+    already_notified = await redis.get(notified_key)
+    if not already_notified:
+        seller_email = await fetch_user_email(str(txn.seller_id))
+        if seller_email:
+            await notification_service.send_abandoned_checkout_email(txn, seller_email)
+        await redis.set(notified_key, 1, ex=21600)
+```
+
+### Sale complete (seller notification)
 
 ```python
 # backend/app/services/notification_service.py
 import logging
-from app.core.config import settings
 import resend
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 resend.api_key = settings.RESEND_API_KEY
 
-async def send_sale_complete(transaction):
+async def send_sale_complete(transaction, seller_email: str) -> None:
     try:
         resend.Emails.send({
             "from": "NextPrep <no-reply@yourdomain.com>",
-            "to": [transaction.seller_email],
+            "to": [seller_email],
             "subject": "Your listing has been sold!",
             "html": f"<p>Your listing has been purchased. ₹{transaction.seller_payout_rupees} will be credited to your Razorpay account.</p>"
         })
@@ -670,20 +794,17 @@ async def send_sale_complete(transaction):
 ### Abandoned checkout (seller only, 6h cooldown per listing)
 
 ```python
-async def send_abandoned_checkout_email(transaction):
+async def send_abandoned_checkout_email(transaction, seller_email: str) -> None:
     try:
         resend.Emails.send({
             "from": "NextPrep <no-reply@yourdomain.com>",
-            "to": [transaction.seller_email],
+            "to": [seller_email],
             "subject": "A buyer didn't complete checkout",
             "html": "<p>A buyer started a purchase but did not complete payment. Your listing is still available.</p>"
         })
         logger.info("Abandoned checkout email sent: listing=%s", transaction.listing_id)
     except Exception as e:
         logger.error("Failed to send abandoned email: listing=%s error=%s", transaction.listing_id, str(e))
-```
-
-Seller email is fetched from `payload["email"]` via JWT or joined from `auth.users`. Do not store email in `public.users`. Pass it through the notification call after resolving from the token or a service-role query.
 
 ---
 
@@ -707,7 +828,9 @@ The hash is never returned in any API response when `passkey_invalidated = TRUE`
 ```
 backend/app/routers/payments.py
 backend/app/jobs/scheduler.py
+backend/app/services/payment_service.py
 backend/app/services/notification_service.py
+backend/app/core/supabase_admin.py
 backend/alembic/versions/<timestamp>_add_razorpay_account_id_to_users.py
 frontend/app/transactions/[id]/status/page.jsx
 frontend/components/listings/BuyNowSection.jsx
@@ -734,6 +857,10 @@ backend/app/models/user.py
 
 frontend/app/listings/[id]/page.jsx
   — embed BuyNowSection component (client boundary)
+
+.claude/CLAUDE.md
+  — add POST /payments/onboard, POST /payments/onboard/complete,
+    GET /transactions/{id}/status to the API endpoints table
 ```
 
 ---
@@ -770,22 +897,26 @@ The following rules from CLAUDE.md apply directly to this feature:
 
 ## Definition of done
 
+- [ ] `POST /payments/onboard` returns `onboarding_url` for a seller without `razorpay_account_id`; returns "Already onboarded" if one exists
+- [ ] `POST /payments/onboard/complete` with a non-activated Razorpay account returns 400 "KYC not yet complete"
+- [ ] `POST /payments/onboard/complete` with an activated account sets `razorpay_account_id` on the seller's `public.users` row
 - [ ] Seller without `razorpay_account_id` receives 403 on `POST /listings`
 - [ ] Frontend "Create Listing" button is disabled with explanatory text when `razorpay_account_id` is null
-- [ ] `POST /payments/verify-passkey` returns 400 after 3 wrong attempts; 4th attempt returns 403 without running hash comparison
+- [ ] `POST /payments/verify-passkey` returns 403 on the third wrong attempt (count=3); hash check does not run when count≥3
+- [ ] Seller submitting passkey against their own listing receives 403 "You cannot purchase your own listing."
 - [ ] Correct passkey returns a Razorpay payment link URL and buyer is redirected
 - [ ] Submitting the correct passkey a second time returns the same payment link (idempotency)
 - [ ] `POST /payments/webhook` with invalid HMAC signature returns 400
 - [ ] `POST /payments/webhook` with unrecognised event type returns 200
-- [ ] Successful `payment_link.paid` webhook sets `transaction.status = 'released'`, `listing.is_available = FALSE`, `listing.passkey_invalidated = TRUE`, `listing.sold_at` is not null
+- [ ] Successful `payment_link.paid` webhook sets `transaction.status = 'released'`, `listing.is_available = FALSE`, `listing.passkey_invalidated = TRUE`, `listing.sold_at` is not null — all in same DB commit
 - [ ] Duplicate webhook for already-released transaction returns 200 with no DB change
 - [ ] Late webhook for cancelled transaction triggers refund and returns 200
 - [ ] Concurrent payment scenario: second webhook results in refund; listing remains `is_available = FALSE`
 - [ ] APScheduler marks initiated transactions older than 15 minutes as `cancelled`
-- [ ] Abandoned seller email is sent at most once per listing per 6 hours
-- [ ] `GET /transactions/{id}/status` returns current status; buyer cannot query another buyer's transaction
+- [ ] Abandoned seller email is sent at most once per listing per 6 hours (Redis key `abandoned_notified:{listing_id}` with TTL 6h)
+- [ ] Seller email for both notification types is resolved from `auth.users` via service role — `transaction.seller_email` does not exist and is not accessed anywhere
+- [ ] `GET /transactions/{id}/status` returns current status; buyer cannot query another buyer's transaction (returns 404)
 - [ ] Buyer status page polls every 2 seconds and stops polling when status is `released` or `cancelled`
 - [ ] `razorpay_payment_link_url` is never null on any `initiated` transaction in DB
 - [ ] DB query confirms no `passkey_invalidated = TRUE AND is_available = TRUE` rows exist after any completed sale
 - [ ] All payment events logged with `transaction_id` and `listing_id` — no passkey plaintext, no secrets in logs
-- [ ] Passkey regeneration overwrites old hash; old passkey no longer works
