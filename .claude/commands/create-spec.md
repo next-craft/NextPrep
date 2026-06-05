@@ -72,16 +72,23 @@ git checkout -b <branch_name>
 
 Read all of these before writing a single line of the spec:
 
-- `.claude/CLAUDE.md` — stack, conventions, constants, security rules
+- `.claude/CLAUDE.md` — stack, conventions, constants, security rules **(mandatory — every spec must be grounded in this)**
 - `.claude/docs/AUTH.md` — auth implementation, verify_token, Supabase setup
 - `.claude/docs/SCHEMA.md` — full DB schema, constraints, search implementation
 - `.claude/docs/PAYMENT.md` — complete payment workflow, webhook handler, jobs
 - `.claude/specs/decisions/DECISIONS.md` — all architectural decisions and reasons
 - All existing files in `.claude/specs/<subfolder>/` — avoid duplicating what exists
+- All existing files in `.claude/specs/product/` — product decisions affect every spec
 
 Do not write the spec until you have read all of these.
 Everything in the spec must be grounded in what you read — do not invent decisions,
 do not contradict existing decisions, do not introduce technology not in the stack.
+
+**Specific things to check in CLAUDE.md before writing:**
+- Canonical constants (exam categories, listing types, conditions, transaction statuses, Redis keys)
+- Security rules (all 13) — call out which ones apply in the Security considerations section
+- "What NOT to build in v1" — nothing from that list may appear in scope
+- Team constraints (two developers, no DevOps) — no architecture requiring a third person
 
 ## Step 7 — Write the spec
 
