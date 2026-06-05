@@ -88,29 +88,10 @@ Authentication → URL Configuration:
 
 ### 3 — Run DB trigger SQL (once, in Supabase SQL editor)
 
-This SQL is NOT in Alembic — Alembic cannot access the `auth` schema.
-
-```sql
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO public.users (id, full_name, avatar_url, is_verified)
-    VALUES (
-        NEW.id,
-        COALESCE(NEW.raw_user_meta_data->>'full_name', 'User'),
-        NEW.raw_user_meta_data->>'avatar_url',
-        COALESCE((NEW.raw_user_meta_data->>'email_verified')::boolean, FALSE)
-    );
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE TRIGGER on_auth_user_created
-    AFTER INSERT ON auth.users
-    FOR EACH ROW EXECUTE FUNCTION handle_new_user();
-```
-
-**Why `SECURITY DEFINER`:** The trigger runs as the function owner (postgres superuser), not the calling role. Required to write to `public.users` from a trigger on `auth.users`.
+The full trigger SQL (`handle_new_user` function + `on_auth_user_created` trigger) is
+defined in **Spec 06 (Schema), "Trigger — auto-create public.users on signup"**. Copy it
+from there and run it once in the Supabase SQL editor. It is NOT in Alembic — Alembic
+cannot access the `auth` schema.
 
 **What gets populated:**
 - `id` — same UUID as `auth.users.id`
@@ -209,6 +190,7 @@ def verify_passkey(submitted: str, listing_id: str, stored_hash: str) -> bool:
 **Key decisions:**
 - Algorithm is **ES256** (asymmetric) — not HS256. Supabase signs with ES256.
 - `get_jwks()` makes a live network call per request in v1. JWKS caching is deferred to month 2 (see DECISIONS.md). Acceptable at low traffic.
+- **`get_jwks()` has no network error handling by design.** If the Supabase JWKS endpoint is unreachable, `requests.get(JWKS_URL).json()` raises `requests.ConnectionError` or similar — not `JWTError`. The `except JWTError` block does not catch it, so FastAPI returns HTTP 500. This is a known v1 limitation — do not fix by rewriting `verify_token`. Monitor for 500s on Railway as a proxy for Supabase JWKS availability.
 - `payload["sub"]` is the user UUID — used in all DB queries as the primary user identifier.
 - `payload["email"]` is available from the JWT when needed server-side.
 - `hmac.compare_digest` prevents timing attacks on passkey verification. Never use `==`.
@@ -261,6 +243,11 @@ PASSKEY_HMAC_SECRET = os.getenv("PASSKEY_HMAC_SECRET")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 ```
+
+**Important:** `security.py` also loads `SUPABASE_URL` and `PASSKEY_HMAC_SECRET` directly
+via `os.getenv()` because AUTH.md requires it to be self-contained. Do not refactor
+`security.py` to import from `config.py` — that would contradict the "do not rewrite"
+constraint on `verify_token`. The duplication is intentional.
 
 ---
 
@@ -453,7 +440,25 @@ api.interceptors.request.use(async (config) => {
 export default api
 ```
 
-Used in Client Components and TanStack Query mutation functions. Not used in Server Components — those call the backend directly with the server-side session when needed.
+Used in Client Components and TanStack Query mutation functions. Not used in Server Components.
+
+**No Server Component in this project calls a protected FastAPI endpoint** — all protected API calls originate from Client Components via `api.js`. Server Components that need auth context (e.g. dashboard) call `supabase.auth.getUser()` only and redirect unauthenticated users; they do not proxy requests to FastAPI.
+
+**401 response handling:** If the access token is expired or invalid when a Client Component calls FastAPI, the response interceptor redirects to `/login`:
+
+```javascript
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      window.location.href = '/login'
+    }
+    return Promise.reject(error)
+  }
+)
+```
+
+Add this interceptor block to `lib/api.js` directly after the request interceptor.
 
 ---
 
@@ -563,17 +568,51 @@ frontend/lib/supabase/server.js
 frontend/lib/api.js
 frontend/middleware.js
 frontend/app/(auth)/login/page.jsx
-frontend/app/(auth)/auth/callback/route.js
+frontend/app/(auth)/auth/callback/route.js   ← URL: /auth/callback (route group (auth) is stripped)
 backend/app/core/security.py
 backend/app/core/config.py
 ```
 
+**NOTE on callback file:** Spec 02 (User Flows) "Files to create" lists this incorrectly as
+`app/(auth)/callback/page.jsx` — that path produces URL `/callback`, not `/auth/callback`.
+The correct path is `app/(auth)/auth/callback/route.js` (URL `/auth/callback`) and it must be
+a Route Handler (`route.js`), not a page component, because `exchangeCodeForSession` must
+run server-side before any HTML is rendered.
+
 ## Files to modify
 
 ```
-backend/app/main.py             — import security, set up CORS with FRONTEND_URL only
-frontend/constants/             — no changes; auth uses no constants from here
+backend/app/main.py   — add FastAPI CORS middleware with FRONTEND_URL only (see CORS setup below)
 ```
+
+## CORS setup — `backend/app/main.py`
+
+CORS must be configured before any route registration. Without it, every browser API call
+silently fails with a network error (no CORS headers = browser blocks the response).
+
+```python
+# backend/app/main.py
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.core.config import FRONTEND_URL
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[FRONTEND_URL],   # never "*" in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# routers registered below
+```
+
+`FRONTEND_URL` defaults to `http://localhost:3000` in development (see `config.py`).
+In production it is set to `https://yourdomain.com` via Railway environment variable.
+
+---
 
 ## New dependencies
 
@@ -632,3 +671,6 @@ The following security rules from CLAUDE.md apply directly to this spec:
 - [ ] `SUPABASE_SERVICE_ROLE_KEY` does not appear in `security.py` or any auth-related file
 - [ ] `PASSKEY_HMAC_SECRET` is loaded from env and never logged — grep confirms no `log.*PASSKEY` in codebase
 - [ ] CORS in `backend/app/main.py` allows only `FRONTEND_URL`, not `*`, in production environment
+- [ ] After `supabase.auth.signOut()`, a Server Component calling `supabase.auth.getUser()` returns `null` and the protected page redirects to `/login`
+- [ ] After logout, browser DevTools → Application → Cookies shows Supabase session cookies removed
+- [ ] When OAuth `code` param is missing or `exchangeCodeForSession` fails, the callback route redirects to `/login?error=auth_failed` (not a 500)
