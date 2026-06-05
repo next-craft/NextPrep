@@ -112,9 +112,12 @@ Filters applied as URL query params. Page re-renders server-side on change.
 Rendered as SSR. Google can index it.
 
 1. Page fetches `GET /v1/listings/{id}`.
-2. If listing not found or `is_available = FALSE` and `sold_at` is not null: show "This listing is no longer available."
-3. If listing `is_available = FALSE` and `sold_at` is null (paused/suspended): show "This listing is temporarily unavailable."
-4. Page shows:
+2. Determine display state:
+   - Not found (404) or `deleted_at IS NOT NULL`: show "This listing is no longer available." Deleted listings are not a named user-facing state — they are simply gone.
+   - `sold_at IS NOT NULL`: show "This listing has been sold."
+   - `is_available = FALSE` and both timestamps NULL (paused/suspended): show "This listing is temporarily unavailable."
+   - `is_available = TRUE`: render full listing detail (step 3 below).
+3. Page shows:
    - Image carousel (up to 5 Cloudinary images)
    - Title
    - `formatPrice(asking_price)` — large, prominent
@@ -221,8 +224,10 @@ Seller dashboard at `/dashboard` shows:
 - Listing reappears in search.
 
 **Delete listing (`DELETE /v1/listings/{id}`):**
-- Soft delete: `is_available = FALSE`, `sold_at = now()`.
-- Conversations archived, not deleted (dispute history).
+- Soft delete: `is_available = FALSE`, `deleted_at = now()`. `sold_at` stays NULL.
+- A deleted listing is not a sold listing. `total_sales` is never incremented on deletion. Analytics queries filter by `transactions.status = 'released'`, not by `listings.sold_at`, so deletion does not pollute revenue data.
+- Conversations survive: `conversations.listing_id` is set to NULL via `ON DELETE SET NULL`. Chat history and dispute history are preserved.
+- Transactions survive: `transactions.listing_id` is set to NULL via `ON DELETE SET NULL`. Financial records are never deleted.
 
 **Regenerate passkey:**
 - Calls backend endpoint that generates new passkey, new hash, overwrites old hash.
@@ -426,10 +431,10 @@ After webhook confirms payment:
 
 ### 6.4 Seller dashboard post-sale
 
-- Listing shows as "Sold" in dashboard.
-- `total_sales` incremented.
-- Listing no longer appears in search results.
-- Conversation preserved (archived).
+- Listing shows as "Sold" in dashboard (`sold_at IS NOT NULL`, `is_available = FALSE`).
+- `total_sales` incremented on the seller's `public.users` row.
+- Listing excluded from search results (`is_available = FALSE`).
+- Conversation preserved. `conversations.listing_id` still points to the listing (listing is not deleted — it's sold, FK intact).
 
 ---
 
@@ -438,21 +443,22 @@ After webhook confirms payment:
 Dashboard at `/dashboard` — client-rendered, authenticated.
 
 **Tabs:**
-- "Selling" — all listings the user has created, grouped by status (active / paused / sold)
+- "Selling" — all listings the user has created where `deleted_at IS NULL`, grouped by state (active / paused / sold). Deleted listings are excluded — they no longer appear in the seller's dashboard.
 - "Buying" — all conversations where user is buyer, with listing status visible
 - "Transactions" — all transactions (as buyer and seller)
 
-**Selling tab — per listing:**
+**Selling tab — per listing (excludes deleted):**
 - Thumbnail, title, price, condition
-- Status badge
+- Status badge: **Active** (`is_available=TRUE`) / **Paused** (`is_available=FALSE, sold_at=NULL`) / **Sold** (`sold_at IS NOT NULL`)
 - Unread message count (red badge)
 - Actions: Edit | Pause/Resume | Regenerate passkey | Delete
+- Delete action is hidden on sold listings (passkey already invalidated, no further action needed)
 
 **Buying tab — per conversation:**
 - Listing thumbnail and title
 - Last message preview
 - Unread badge
-- Listing status: Available / Sold / Unavailable
+- Listing status: **Available** / **Sold** / **Paused** / **Listing removed** (shown when `listing_id` is NULL — conversation survives but the listing no longer exists)
 - "Buy Now" button if listing still available and user hasn't bought it
 
 **Transactions tab — per transaction:**
@@ -483,7 +489,8 @@ Dashboard at `/dashboard` — client-rendered, authenticated.
 
 ### Listing deleted while buyer in checkout
 - Buyer holds a payment link from before deletion.
-- If buyer pays: webhook Step 7 finds `is_available = FALSE` → refunds immediately.
+- Deletion sets `is_available = FALSE`, `deleted_at = now()`.
+- If buyer pays: webhook Step 8 attempts `UPDATE listings SET is_available=FALSE, sold_at=now() WHERE is_available=TRUE` — finds no rows (already `FALSE`) → concurrent payment path → buyer immediately refunded. Deleted listing is not marked sold.
 
 ### Passkey regenerated after buyer received link
 - Payment link already exists → buyer can still complete payment.

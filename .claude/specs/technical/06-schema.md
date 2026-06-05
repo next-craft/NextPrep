@@ -96,9 +96,12 @@ CREATE TABLE listings (
     passkey_invalidated_at  TIMESTAMPTZ DEFAULT NULL,
     views                   INTEGER NOT NULL DEFAULT 0,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at              TIMESTAMPTZ DEFAULT NULL,
 
     CONSTRAINT no_available_sold_listing
-        CHECK (NOT (is_available = TRUE AND sold_at IS NOT NULL))
+        CHECK (NOT (is_available = TRUE AND (sold_at IS NOT NULL OR deleted_at IS NOT NULL))),
+    CONSTRAINT sold_xor_deleted
+        CHECK (NOT (sold_at IS NOT NULL AND deleted_at IS NOT NULL))
 );
 ```
 
@@ -110,11 +113,19 @@ CREATE TABLE listings (
 - `original_price` — optional, whole rupees. Used to show discount percentage in UI.
 - `subject` — free text. No DB constraint. UI shows popular dropdown defaults + "Other". Enables flexible search.
 - `images` — `TEXT[]`, Cloudinary URLs. Max 5 enforced by application. No DB array length constraint.
-- `is_available` + `sold_at` valid states:
-  - `TRUE / NULL` — active listing, for sale
-  - `FALSE / NULL` — paused or suspended (moderation), not sold
-  - `FALSE / <timestamp>` — sold
-  - `TRUE / <timestamp>` — impossible, blocked by constraint
+- `is_available`, `sold_at`, `deleted_at` — full listing state model:
+
+  | `is_available` | `sold_at` | `deleted_at` | State |
+  |---|---|---|---|
+  | `TRUE` | `NULL` | `NULL` | **active** — visible in search, for sale |
+  | `FALSE` | `NULL` | `NULL` | **paused** (seller) or **suspended** (moderation) |
+  | `FALSE` | `<timestamp>` | `NULL` | **sold** — payment confirmed via webhook |
+  | `FALSE` | `NULL` | `<timestamp>` | **deleted** — seller soft-deleted |
+  | Any other combination | — | — | impossible — blocked by constraints |
+
+  `sold_xor_deleted` constraint prevents `sold_at` and `deleted_at` from both being non-NULL. A deleted listing is never a sold listing. `total_sales` is incremented only when a transaction reaches `released` — never on deletion.
+
+- `deleted_at` — set by `DELETE /v1/listings/{id}`. `sold_at` stays NULL. Conversations survive via `ON DELETE SET NULL` on their FK. Financial records in `transactions` survive via `ON DELETE SET NULL` on their FK.
 - `passkey_hash` — HMAC-SHA256 of `passkey + listing_id` using `PASSKEY_HMAC_SECRET`. Plaintext never stored.
 - `passkey_invalidated` — set `TRUE` atomically when a payment completes (webhook Step 8). Prevents reuse.
 - `views` — incremented on each `GET /listings/{id}` call. No auth required.
@@ -128,7 +139,7 @@ CREATE INDEX idx_listings_available ON listings (is_available, exam_category, li
 -- Seller dashboard: all listings by a seller
 CREATE INDEX idx_listings_seller_id ON listings (seller_id);
 
--- Sort by newest first (default ordering)
+-- Sort by newest first (default ordering); Alembic: use sa.text('created_at DESC') in column list
 CREATE INDEX idx_listings_created_at ON listings (created_at DESC);
 ```
 
@@ -184,8 +195,11 @@ CREATE TABLE messages (
 
 **Column notes:**
 - `body` — free text. Application enforces max length (2000 chars) at API boundary. No DB constraint.
-- `is_read` — set `TRUE` by `PATCH /conversations/{id}/messages/read`. Marks all unread messages in a conversation as read for the current user.
-- No `recipient_id` — the other participant in the conversation is implied by `sender_id` vs the `conversations.buyer_id`/`seller_id` pairing.
+- `is_read` — set `TRUE` by `PATCH /conversations/{id}/messages/read`. Marks all unread messages in a conversation as read for the calling user.
+
+  A single `BOOLEAN` is sufficient here because every conversation has exactly two participants (buyer and seller). When a message is sent, the sender already knows its content — only the other party needs a read flag. The application identifies "which party hasn't read this" by comparing `sender_id` to the calling user's ID: messages where `sender_id != current_user` and `is_read = FALSE` are unread for that user. No per-recipient read table is needed. This model breaks only if a conversation has more than two participants — group chat is out of scope for v1 and is explicitly listed in "What NOT to build."
+
+- No `recipient_id` — the other participant is implied by `sender_id` vs `conversations.buyer_id`/`seller_id`. This avoids a redundant column that would have to be kept in sync.
 
 **Indexes:**
 
@@ -336,7 +350,7 @@ class User(Base):
 
 ```python
 # backend/app/models/listing.py
-from sqlalchemy import Column, String, Boolean, Integer, TIMESTAMP, ARRAY, CheckConstraint, text
+from sqlalchemy import Column, String, Boolean, Integer, TIMESTAMP, ARRAY, CheckConstraint, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
 
@@ -344,7 +358,7 @@ class Listing(Base):
     __tablename__ = "listings"
 
     id                     = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-    seller_id              = Column(UUID(as_uuid=True), nullable=False)
+    seller_id              = Column(UUID(as_uuid=True), ForeignKey("public.users.id", ondelete="CASCADE"), nullable=False)
     title                  = Column(String, nullable=False)
     description            = Column(String)
     exam_category          = Column(String, nullable=False)
@@ -362,18 +376,20 @@ class Listing(Base):
     passkey_invalidated_at = Column(TIMESTAMP(timezone=True))
     views                  = Column(Integer, nullable=False, default=0)
     created_at             = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text("now()"))
+    deleted_at             = Column(TIMESTAMP(timezone=True))
 
     __table_args__ = (
         CheckConstraint("listing_type IN ('BOOK', 'NOTES', 'MODULE', 'BUNDLE')", name="ck_listing_type"),
         CheckConstraint("condition IN ('A', 'B', 'C')", name="ck_condition"),
         CheckConstraint("asking_price > 0", name="ck_asking_price_positive"),
-        CheckConstraint("NOT (is_available = TRUE AND sold_at IS NOT NULL)", name="no_available_sold_listing"),
+        CheckConstraint("NOT (is_available = TRUE AND (sold_at IS NOT NULL OR deleted_at IS NOT NULL))", name="no_available_sold_listing"),
+        CheckConstraint("NOT (sold_at IS NOT NULL AND deleted_at IS NOT NULL)", name="sold_xor_deleted"),
     )
 ```
 
 ```python
 # backend/app/models/conversation.py
-from sqlalchemy import Column, Boolean, TIMESTAMP, UniqueConstraint, text
+from sqlalchemy import Column, Boolean, TIMESTAMP, UniqueConstraint, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
 
@@ -381,9 +397,9 @@ class Conversation(Base):
     __tablename__ = "conversations"
 
     id                     = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-    listing_id             = Column(UUID(as_uuid=True))
-    buyer_id               = Column(UUID(as_uuid=True), nullable=False)
-    seller_id              = Column(UUID(as_uuid=True), nullable=False)
+    listing_id             = Column(UUID(as_uuid=True), ForeignKey("listings.id", ondelete="SET NULL"))
+    buyer_id               = Column(UUID(as_uuid=True), ForeignKey("public.users.id", ondelete="CASCADE"), nullable=False)
+    seller_id              = Column(UUID(as_uuid=True), ForeignKey("public.users.id", ondelete="CASCADE"), nullable=False)
     first_message_notified = Column(Boolean, nullable=False, default=False)
     created_at             = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text("now()"))
 
@@ -394,7 +410,7 @@ class Conversation(Base):
 
 ```python
 # backend/app/models/message.py
-from sqlalchemy import Column, String, Boolean, TIMESTAMP, text
+from sqlalchemy import Column, String, Boolean, TIMESTAMP, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
 
@@ -402,8 +418,8 @@ class Message(Base):
     __tablename__ = "messages"
 
     id              = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-    conversation_id = Column(UUID(as_uuid=True), nullable=False)
-    sender_id       = Column(UUID(as_uuid=True), nullable=False)
+    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
+    sender_id       = Column(UUID(as_uuid=True), ForeignKey("public.users.id", ondelete="CASCADE"), nullable=False)
     body            = Column(String, nullable=False)
     is_read         = Column(Boolean, nullable=False, default=False)
     created_at      = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text("now()"))
@@ -411,7 +427,7 @@ class Message(Base):
 
 ```python
 # backend/app/models/transaction.py
-from sqlalchemy import Column, String, Integer, TIMESTAMP, CheckConstraint, text
+from sqlalchemy import Column, String, Integer, TIMESTAMP, CheckConstraint, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
 
@@ -419,9 +435,9 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id                       = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-    listing_id               = Column(UUID(as_uuid=True))
-    buyer_id                 = Column(UUID(as_uuid=True), nullable=False)
-    seller_id                = Column(UUID(as_uuid=True), nullable=False)
+    listing_id               = Column(UUID(as_uuid=True), ForeignKey("listings.id", ondelete="SET NULL"))
+    buyer_id                 = Column(UUID(as_uuid=True), ForeignKey("public.users.id", ondelete="CASCADE"), nullable=False)
+    seller_id                = Column(UUID(as_uuid=True), ForeignKey("public.users.id", ondelete="CASCADE"), nullable=False)
     amount_rupees            = Column(Integer, nullable=False)
     platform_fee_rupees      = Column(Integer, nullable=False, default=0)
     seller_payout_rupees     = Column(Integer, nullable=False)
@@ -442,7 +458,7 @@ class Transaction(Base):
 
 ```python
 # backend/app/models/seller_rating.py
-from sqlalchemy import Column, Integer, TIMESTAMP, UniqueConstraint, CheckConstraint, text
+from sqlalchemy import Column, Integer, TIMESTAMP, UniqueConstraint, CheckConstraint, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
 
@@ -450,9 +466,9 @@ class SellerRating(Base):
     __tablename__ = "seller_ratings"
 
     id             = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-    transaction_id = Column(UUID(as_uuid=True), nullable=False)
-    rated_by       = Column(UUID(as_uuid=True), nullable=False)
-    seller_id      = Column(UUID(as_uuid=True), nullable=False)
+    transaction_id = Column(UUID(as_uuid=True), ForeignKey("transactions.id", ondelete="CASCADE"), nullable=False)
+    rated_by       = Column(UUID(as_uuid=True), ForeignKey("public.users.id", ondelete="CASCADE"), nullable=False)
+    seller_id      = Column(UUID(as_uuid=True), ForeignKey("public.users.id", ondelete="CASCADE"), nullable=False)
     rating         = Column(Integer, nullable=False)
     created_at     = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text("now()"))
 
@@ -515,10 +531,18 @@ def upgrade():
         sa.Column('passkey_invalidated_at', sa.TIMESTAMP(timezone=True)),
         sa.Column('views', sa.Integer(), nullable=False, server_default='0'),
         sa.Column('created_at', sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column('deleted_at', sa.TIMESTAMP(timezone=True)),
         sa.CheckConstraint("listing_type IN ('BOOK', 'NOTES', 'MODULE', 'BUNDLE')", name='ck_listing_type'),
         sa.CheckConstraint("condition IN ('A', 'B', 'C')", name='ck_condition'),
         sa.CheckConstraint("asking_price > 0", name='ck_asking_price_positive'),
-        sa.CheckConstraint("NOT (is_available = TRUE AND sold_at IS NOT NULL)", name='no_available_sold_listing'),
+        sa.CheckConstraint(
+            "NOT (is_available = TRUE AND (sold_at IS NOT NULL OR deleted_at IS NOT NULL))",
+            name='no_available_sold_listing'
+        ),
+        sa.CheckConstraint(
+            "NOT (sold_at IS NOT NULL AND deleted_at IS NOT NULL)",
+            name='sold_xor_deleted'
+        ),
         sa.ForeignKeyConstraint(['seller_id'], ['public.users.id'], ondelete='CASCADE'),
     )
 
@@ -591,8 +615,8 @@ def upgrade():
     op.create_index('idx_listings_available', 'listings',
                     ['is_available', 'exam_category', 'listing_type'])
     op.create_index('idx_listings_seller_id', 'listings', ['seller_id'])
-    op.create_index('idx_listings_created_at', 'listings', ['created_at'],
-                    postgresql_ops={'created_at': 'DESC'})
+    # DESC index — use sa.text() for sort direction; postgresql_ops is for operator classes, not ordering
+    op.create_index('idx_listings_created_at', 'listings', [sa.text('created_at DESC')])
     op.create_index('idx_conversations_buyer_id', 'conversations', ['buyer_id'])
     op.create_index('idx_conversations_seller_id', 'conversations', ['seller_id'])
     op.create_index('idx_messages_conversation_id', 'messages', ['conversation_id', 'created_at'])
@@ -661,6 +685,22 @@ JOIN messages m ON m.conversation_id = c.id
 WHERE m.is_read = FALSE
 AND m.created_at < now() - interval '24 hours'
 GROUP BY c.id, c.listing_id;
+
+-- Deleted listings incorrectly showing sold_at (should always return 0 rows)
+SELECT id, sold_at, deleted_at FROM listings
+WHERE sold_at IS NOT NULL AND deleted_at IS NOT NULL;
+
+-- Listing state breakdown
+SELECT
+    CASE
+        WHEN is_available = TRUE THEN 'active'
+        WHEN deleted_at IS NOT NULL THEN 'deleted'
+        WHEN sold_at IS NOT NULL THEN 'sold'
+        ELSE 'paused'
+    END AS state,
+    COUNT(*) AS count
+FROM listings
+GROUP BY 1;
 ```
 
 ---
@@ -711,6 +751,9 @@ The following security rules from CLAUDE.md apply directly to this spec:
 - [ ] `listing_type` CHECK constraint rejects `INSERT INTO listings (listing_type, ...) VALUES ('INVALID', ...)` with a constraint violation
 - [ ] `condition` CHECK constraint rejects values outside `'A'`, `'B'`, `'C'`
 - [ ] `no_available_sold_listing` constraint rejects `UPDATE listings SET is_available=TRUE, sold_at=now() WHERE id=...`
+- [ ] `no_available_sold_listing` also rejects `UPDATE listings SET is_available=TRUE, deleted_at=now() WHERE id=...`
+- [ ] `sold_xor_deleted` constraint rejects `UPDATE listings SET sold_at=now(), deleted_at=now() WHERE id=...`
+- [ ] Deleting a listing sets `deleted_at=now()`, leaves `sold_at=NULL`; listing state breakdown query shows it under "deleted" not "sold"
 - [ ] `UNIQUE(listing_id, buyer_id)` on conversations rejects a second conversation row for same buyer/listing pair
 - [ ] `one_active_transaction_per_buyer_listing` partial index rejects a second `initiated` transaction for same buyer/listing; allows a second row after first is `cancelled`
 - [ ] `UNIQUE(transaction_id, rated_by)` on seller_ratings rejects duplicate ratings
