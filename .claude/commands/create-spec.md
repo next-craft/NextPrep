@@ -1,6 +1,6 @@
 ---
 description: Create a spec file and feature branch for the next step
-argument-hint: "<step-number> <spec-name> e.g. 01 user-flows"
+argument-hint: "<step-number> <spec-name> <description> e.g. 01 user-flows Every user journey step by step"
 allowed-tools: Read, Write, Glob, Bash(git:*)
 ---
 
@@ -23,25 +23,29 @@ DO NOT CONTINUE until the working directory is clean.
 
 From $ARGUMENTS extract:
 
-1. `step_number` — zero-padded to 2 digits: 1 → 01, 3 → 03, 12 → 12
+1. `step_number` — first token, zero-padded to 2 digits: 1 → 01, 3 → 03, 12 → 12
 
-2. `spec_name` — the raw name provided: e.g. `user-flows`, `payment`, `chat`
+2. `spec_name` — second token, the raw name: e.g. `user-flows`, `payment`, `chat`
 
-3. `feature_title` — human readable Title Case: e.g. "User Flows", "Payment", "Chat"
+3. `description` — everything after the second token, used as the Purpose paragraph seed
+   e.g. "Every user journey step by step: browse, list, chat, buy, sell"
 
-4. `feature_slug` — lowercase kebab-case, only a-z 0-9 and -, max 40 chars
+4. `feature_title` — human readable Title Case derived from spec_name:
+   e.g. "User Flows", "Payment", "Chat", "Image Upload"
+
+5. `feature_slug` — lowercase kebab-case, only a-z 0-9 and -, max 40 chars
    e.g. `user-flows`, `payment`, `image-upload`
 
-5. `branch_name` — format: `spec/<step_number>-<feature_slug>`
+6. `branch_name` — format: `spec/<step_number>-<feature_slug>`
    e.g. `spec/02-user-flows`, `spec/07-chat`
 
-6. `subfolder` — infer from spec name:
+7. `subfolder` — infer from spec_name:
    - `overview`, `user-flows`, `content-policy`, `notifications` → `product`
    - `auth`, `schema`, `payment`, `chat`, `search`, `image-upload`, `passkey`, `api` → `technical`
    - `environments`, `deployment`, `logging`, `jobs` → `infrastructure`
    - `log` → `decisions`
 
-7. `output_path` — `.claude/specs/<subfolder>/<step_number>-<feature_slug>.md`
+8. `output_path` — `.claude/specs/<subfolder>/<step_number>-<feature_slug>.md`
 
 If you cannot infer all of the above from $ARGUMENTS, ask the user to clarify
 before proceeding.
@@ -85,12 +89,15 @@ Generate the spec document with this exact structure.
 Write in full detail. No placeholders. No "TBD". No "see other file" without
 quoting the relevant content inline.
 
+Use `description` from the parsed arguments as the starting point for the
+Purpose section — expand it into a full paragraph grounded in the project context.
+
 ---
 # Spec <step_number>: <feature_title>
 
 ## Purpose
-One paragraph. What this spec covers, why it exists, and what problem it solves
-for this specific project.
+One paragraph. Start from `description`, expand with project-specific context.
+What this spec covers, why it exists, and what problem it solves.
 
 ## Depends on
 Which previous specs or components must exist before this can be implemented.
@@ -138,6 +145,7 @@ Print exactly this format:
 Branch:    <branch_name>
 Spec file: .claude/specs/<subfolder>/<step_number>-<feature_slug>.md
 Title:     <feature_title>
+Desc:      <description>
 ```
 
 Then say:
