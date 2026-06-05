@@ -144,6 +144,8 @@ Save to: `.claude/specs/<subfolder>/<step_number>-<feature_slug>.md`
 
 Do not print the full spec content in chat.
 
+Do not commit yourself or neither ask user for it. Just dont commit. If you have finished your task. Then move to step 9.
+
 ## Step 9 — Report to the user
 
 Print exactly this format:
