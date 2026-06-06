@@ -347,13 +347,36 @@ platform fee · featured listings · anything not in this file or .claude/
 
 ---
 
+## Python environment
+
+**Single shared venv at project root — always use it, never global Python.**
+
+```
+Location:   .venv/                         (project root)
+Python:     3.11
+Activate:   .venv\Scripts\activate         (Windows PowerShell)
+Python bin: .venv\Scripts\python.exe
+Pip:        .venv\Scripts\pip
+Alembic:    .venv\Scripts\alembic
+Uvicorn:    .venv\Scripts\uvicorn
+```
+
+- `requirements.txt` at project root — source of truth for all backend packages.
+- When running any backend command (alembic, uvicorn, pytest, python -c ...) always use `.venv\Scripts\<cmd>` or activate first.
+- When adding a new dependency: add to `requirements.txt` **and** `backend/pyproject.toml`, then run `.venv\Scripts\pip install -r requirements.txt`.
+
+---
+
 ## Local development
 
 ```bash
 docker-compose up -d
-cd backend && python -m venv venv && source venv/bin/activate
-pip install -e ".[dev]" && alembic upgrade head
-uvicorn app.main:app --reload --port 8000
+
+# Backend — use project-root venv, not a separate one
+# Activate first:  .venv\Scripts\activate  (PowerShell)
+.venv\Scripts\pip install -r requirements.txt
+cd backend && ..\\.venv\Scripts\alembic upgrade head
+..\\.venv\Scripts\uvicorn app.main:app --reload --port 8000
 
 cd frontend && npm install && npm run dev
 ```
