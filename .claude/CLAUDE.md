@@ -27,7 +27,7 @@ Students buy and sell physical study material via in-person meetup — like OLX,
 ## Team
 
 Two developers. No DevOps, no designer, no PM.
-- Dev 1: Frontend (Next.js 14, TanStack Query, Tailwind, Shadcn/ui, Cloudinary)
+- Dev 1: Frontend (Next.js 16, TanStack Query, Tailwind, Shadcn/ui, Cloudinary)
 - Dev 2: Backend (FastAPI, SQLAlchemy 2.0, Supabase Postgres, Redis, Razorpay, Resend)
 
 Do not suggest architectures requiring a third person to maintain.
@@ -37,7 +37,7 @@ Do not suggest architectures requiring a third person to maintain.
 ## Tech stack
 
 ### Frontend
-- **Framework:** Next.js 14 (App Router, React Server Components)
+- **Framework:** Next.js 16 (App Router, React Server Components)
 - **Language:** JavaScript only — `.js` and `.jsx`. No TypeScript.
 - **Auth:** Supabase Auth via `@supabase/ssr` — Google OAuth only. No email/password. Session in httpOnly cookies.
 - **Data fetching:** SSR for public/SEO pages + TanStack Query v5 for client state, mutations, chat polling

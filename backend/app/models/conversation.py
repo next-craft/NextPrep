@@ -18,4 +18,5 @@ class Conversation(Base):
 
     __table_args__ = (
         UniqueConstraint("listing_id", "buyer_id", name="uq_conversation_listing_buyer"),
+        # No explicit schema — uses Supabase default search_path (public)
     )

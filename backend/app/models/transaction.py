@@ -28,4 +28,5 @@ class Transaction(Base):
         CheckConstraint("status IN ('initiated', 'released', 'cancelled')", name="ck_transaction_status"),
         CheckConstraint("amount_rupees > 0", name="ck_amount_positive"),
         CheckConstraint("seller_payout_rupees >= 0", name="ck_payout_nonnegative"),
+        # No explicit schema — uses Supabase default search_path (public)
     )

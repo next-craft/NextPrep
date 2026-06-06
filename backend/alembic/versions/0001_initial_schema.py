@@ -30,6 +30,10 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("now()"),
         ),
+        sa.CheckConstraint(
+            "seller_rating IS NULL OR seller_rating BETWEEN 1.00 AND 5.00",
+            name="ck_seller_rating_range",
+        ),
         schema="public",
     )
 
@@ -240,6 +244,16 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.drop_index("idx_transactions_status_created", table_name="transactions")
+    op.drop_index("one_active_transaction_per_buyer_listing", table_name="transactions")
+    op.drop_index("idx_transactions_seller_id", table_name="transactions")
+    op.drop_index("idx_transactions_buyer_id", table_name="transactions")
+    op.drop_index("idx_messages_conversation_id", table_name="messages")
+    op.drop_index("idx_conversations_seller_id", table_name="conversations")
+    op.drop_index("idx_conversations_buyer_id", table_name="conversations")
+    op.drop_index("idx_listings_created_at", table_name="listings")
+    op.drop_index("idx_listings_seller_id", table_name="listings")
+    op.drop_index("idx_listings_available", table_name="listings")
     op.drop_table("seller_ratings")
     op.drop_table("transactions")
     op.drop_table("messages")

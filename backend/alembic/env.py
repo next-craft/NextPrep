@@ -21,8 +21,8 @@ target_metadata = Base.metadata
 
 
 def get_url() -> str:
-    from app.core.config import settings
-    return settings.DATABASE_URL
+    from app.core.config import DATABASE_URL
+    return DATABASE_URL
 
 
 def run_migrations_offline() -> None:

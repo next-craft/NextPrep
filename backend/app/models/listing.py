@@ -45,4 +45,5 @@ class Listing(Base):
             "NOT (sold_at IS NOT NULL AND deleted_at IS NOT NULL)",
             name="sold_xor_deleted",
         ),
+        # No explicit schema — uses Supabase default search_path (public)
     )

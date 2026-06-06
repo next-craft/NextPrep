@@ -19,4 +19,5 @@ class SellerRating(Base):
     __table_args__ = (
         UniqueConstraint("transaction_id", "rated_by", name="uq_rating_transaction_rater"),
         CheckConstraint("rating BETWEEN 1 AND 5", name="ck_rating_range"),
+        # No explicit schema — uses Supabase default search_path (public)
     )

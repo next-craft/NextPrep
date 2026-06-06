@@ -20,7 +20,13 @@ import sys
 # This must happen before the first `from app.*` import.
 # ---------------------------------------------------------------------------
 os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://test:test@localhost:5432/test")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379")
+os.environ.setdefault("RAZORPAY_KEY_ID", "rzp_test_dummy")
+os.environ.setdefault("RAZORPAY_KEY_SECRET", "dummy_secret")
+os.environ.setdefault("RAZORPAY_WEBHOOK_SECRET", "dummy_webhook_secret")
 os.environ.setdefault("PASSKEY_HMAC_SECRET", "0" * 64)
+os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "dummy_service_role_key")
+os.environ.setdefault("RESEND_API_KEY", "re_dummy")
 
 # ---------------------------------------------------------------------------
 # Now safe to import app modules.
@@ -160,9 +166,12 @@ class TestTableNames:
 
     def test_user_schema_is_public(self):
         args = User.__table_args__
-        # __table_args__ on User is a plain dict
-        assert isinstance(args, dict), "__table_args__ on User must be a dict"
-        assert args.get("schema") == "public"
+        # __table_args__ may be a dict or a tuple ending with a dict
+        if isinstance(args, dict):
+            schema_dict = args
+        else:
+            schema_dict = args[-1] if isinstance(args[-1], dict) else {}
+        assert schema_dict.get("schema") == "public"
 
     def test_listing_tablename_is_listings(self):
         assert Listing.__tablename__ == "listings"
@@ -750,21 +759,18 @@ class TestMigrationStructure:
         mod = self._load_migration()
         assert callable(getattr(mod, "downgrade", None))
 
-    def test_migration_downgrade_drops_seller_ratings_before_transactions(self):
-        """
-        Verify FK-safe reverse drop order: seller_ratings must appear before
-        transactions in the downgrade function source.
-        """
-        import inspect, pathlib
+    def _downgrade_drop_table_pos(self, table_name: str) -> int:
+        """Return position of drop_table("<table_name>") in the downgrade block."""
+        import pathlib
         migration_path = pathlib.Path(__file__).parents[1] / "alembic" / "versions" / "0001_initial_schema.py"
         source = migration_path.read_text()
+        downgrade_source = source[source.index("def downgrade()"):]
+        return downgrade_source.find(f'drop_table("{table_name}"')
 
-        # Find positions of each drop_table call within the downgrade block
-        downgrade_start = source.index("def downgrade()")
-        downgrade_source = source[downgrade_start:]
-
-        seller_pos = downgrade_source.find('"seller_ratings"')
-        transactions_pos = downgrade_source.find('"transactions"')
+    def test_migration_downgrade_drops_seller_ratings_before_transactions(self):
+        """Verify FK-safe reverse drop order: seller_ratings before transactions."""
+        seller_pos = self._downgrade_drop_table_pos("seller_ratings")
+        transactions_pos = self._downgrade_drop_table_pos("transactions")
         assert seller_pos != -1, "seller_ratings not dropped in downgrade"
         assert transactions_pos != -1, "transactions not dropped in downgrade"
         assert seller_pos < transactions_pos, (
@@ -772,40 +778,16 @@ class TestMigrationStructure:
         )
 
     def test_migration_downgrade_drops_transactions_before_messages(self):
-        import pathlib
-        migration_path = pathlib.Path(__file__).parents[1] / "alembic" / "versions" / "0001_initial_schema.py"
-        source = migration_path.read_text()
-        downgrade_source = source[source.index("def downgrade()"):]
-        transactions_pos = downgrade_source.find('"transactions"')
-        messages_pos = downgrade_source.find('"messages"')
-        assert transactions_pos < messages_pos
+        assert self._downgrade_drop_table_pos("transactions") < self._downgrade_drop_table_pos("messages")
 
     def test_migration_downgrade_drops_messages_before_conversations(self):
-        import pathlib
-        migration_path = pathlib.Path(__file__).parents[1] / "alembic" / "versions" / "0001_initial_schema.py"
-        source = migration_path.read_text()
-        downgrade_source = source[source.index("def downgrade()"):]
-        messages_pos = downgrade_source.find('"messages"')
-        conversations_pos = downgrade_source.find('"conversations"')
-        assert messages_pos < conversations_pos
+        assert self._downgrade_drop_table_pos("messages") < self._downgrade_drop_table_pos("conversations")
 
     def test_migration_downgrade_drops_conversations_before_listings(self):
-        import pathlib
-        migration_path = pathlib.Path(__file__).parents[1] / "alembic" / "versions" / "0001_initial_schema.py"
-        source = migration_path.read_text()
-        downgrade_source = source[source.index("def downgrade()"):]
-        conversations_pos = downgrade_source.find('"conversations"')
-        listings_pos = downgrade_source.find('"listings"')
-        assert conversations_pos < listings_pos
+        assert self._downgrade_drop_table_pos("conversations") < self._downgrade_drop_table_pos("listings")
 
     def test_migration_downgrade_drops_listings_before_users(self):
-        import pathlib
-        migration_path = pathlib.Path(__file__).parents[1] / "alembic" / "versions" / "0001_initial_schema.py"
-        source = migration_path.read_text()
-        downgrade_source = source[source.index("def downgrade()"):]
-        listings_pos = downgrade_source.find('"listings"')
-        users_pos = downgrade_source.find('"users"')
-        assert listings_pos < users_pos
+        assert self._downgrade_drop_table_pos("listings") < self._downgrade_drop_table_pos("users")
 
 
 # ===========================================================================
