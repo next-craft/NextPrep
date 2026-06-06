@@ -1,0 +1,19 @@
+{
+  "name": "smei-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.107.0",
+    "axios": "^1.17.0",
+    "next": "^16",
+    "react": "^19",
+    "react-dom": "^19"
+  }
+}
