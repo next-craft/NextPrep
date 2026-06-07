@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import FRONTEND_URL, ENVIRONMENT
+from app.routers import listings
 import logging
 
 logger = logging.getLogger(__name__)
@@ -14,3 +15,5 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(listings.router, prefix="/v1")

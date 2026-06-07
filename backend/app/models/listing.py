@@ -47,3 +47,7 @@ class Listing(Base):
         ),
         # No explicit schema — uses Supabase default search_path (public)
     )
+
+    @property
+    def is_sold(self) -> bool:
+        return self.sold_at is not None
