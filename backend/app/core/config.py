@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 SUPABASE_URL = os.getenv("NEXT_PUBLIC_SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
 REDIS_URL = os.getenv("REDIS_URL")
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
@@ -21,6 +22,7 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
 _REQUIRED = [
     "NEXT_PUBLIC_SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
     "DATABASE_URL",
     "REDIS_URL",
     "RAZORPAY_KEY_ID",

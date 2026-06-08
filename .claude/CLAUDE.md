@@ -174,6 +174,7 @@ POST   /listings                  protected
 GET    /listings/{id}             public
 PATCH  /listings/{id}             protected, owner only
 DELETE /listings/{id}             protected, owner only (soft delete)
+PATCH  /listings/{id}/passkey     protected, owner only — regenerate passkey hash
 
 GET    /conversations             protected
 POST   /conversations             protected
@@ -182,7 +183,10 @@ POST   /conversations/{id}/messages   protected
 PATCH  /conversations/{id}/messages/read  protected
 
 POST   /payments/verify-passkey   protected
+POST   /payments/onboard          protected — Razorpay Route linked-account creation, returns KYC URL
+POST   /payments/onboard/complete protected — verifies KYC status, persists razorpay_account_id
 POST   /payments/webhook          no auth — Razorpay, verify signature
+GET    /transactions/{id}/status  protected, buyer-scoped — passkey/payment polling
 
 GET    /users/me                  protected
 PATCH  /users/me                  protected
@@ -314,7 +318,7 @@ API_URL=http://localhost:8000/v1
 6. Image uploads direct to Cloudinary — never through FastAPI
 7. Parameterized queries only — never string-interpolate user input
 8. CORS: allow only `FRONTEND_URL` in production — never `*`
-9. `SUPABASE_SERVICE_ROLE_KEY` — background jobs only, never in request handlers
+9. `SUPABASE_SERVICE_ROLE_KEY` — background jobs only, never in request handlers (the Razorpay webhook handler is the sole approved exception: it is HMAC-signature-authenticated, not user-facing, and needs `fetch_user_email` to resolve the seller's notification address since `public.users` has no email column)
 10. `PASSKEY_HMAC_SECRET` — never logged, never in responses
 11. `hmac.compare_digest` for all hash comparisons — never `==`
 12. No reopening cancelled transactions — late webhooks always refund
