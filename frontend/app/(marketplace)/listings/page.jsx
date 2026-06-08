@@ -1,5 +1,6 @@
 import ListingGrid from '@/components/listings/ListingGrid'
 import ListingFilters from '@/components/listings/ListingFilters'
+import CreateListingButton from '@/components/listings/CreateListingButton'
 
 export const revalidate = 0  // always fresh — ISR not needed here
 
@@ -20,6 +21,9 @@ export default async function ListingsPage({ searchParams }) {
         <ListingFilters current={searchParams} />
       </aside>
       <main className="flex-1">
+        <div className="flex justify-end mb-4">
+          <CreateListingButton />
+        </div>
         <ListingGrid listings={listings} />
       </main>
     </div>

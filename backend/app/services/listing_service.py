@@ -3,10 +3,12 @@ import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
+from fastapi import HTTPException
 from sqlalchemy import select, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.listing import Listing
+from app.models.user import User
 from app.schemas.listing import ListingCreate, ListingUpdate
 from app.core.security import hash_passkey
 
@@ -16,6 +18,10 @@ logger = logging.getLogger(__name__)
 async def create_listing(
     db: AsyncSession, seller_id: str, data: ListingCreate
 ) -> tuple[Listing, str]:
+    seller = await db.get(User, UUID(seller_id))
+    if not seller or not seller.razorpay_account_id:
+        raise HTTPException(403, "Complete payment setup to start selling.")
+
     passkey = str(secrets.randbelow(100_000_000)).zfill(8)
 
     listing = Listing(

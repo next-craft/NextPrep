@@ -16,6 +16,7 @@ class User(Base):
     is_verified   = Column(Boolean, nullable=False, server_default="false")
     seller_rating = Column(Numeric(3, 2))
     total_sales   = Column(Integer, nullable=False, server_default="0")
+    razorpay_account_id = Column(String)
     created_at    = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text("now()"))
 
     __table_args__ = (
