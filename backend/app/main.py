@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import FRONTEND_URL, ENVIRONMENT
 from app.core.redis import create_redis
 from app.jobs.scheduler import scheduler
-from app.routers import listings, payments, users
+from app.routers import chat, listings, payments, users
 import logging
 
 logger = logging.getLogger(__name__)
@@ -34,3 +34,4 @@ app.include_router(listings.router, prefix="/v1")
 app.include_router(payments.router, prefix="/v1")
 app.include_router(payments.status_router, prefix="/v1")
 app.include_router(users.router, prefix="/v1")
+app.include_router(chat.router, prefix="/v1")
