@@ -29,6 +29,27 @@ async def send_sale_complete(transaction_id: UUID, seller_payout_rupees: int, se
         logger.error("Failed to send sale complete email: transaction=%s error=%s", transaction_id, str(e))
 
 
+async def send_new_message_email(conversation_id: UUID, seller_email: str) -> None:
+    """Takes plain values rather than a Conversation ORM object — runs as a
+    FastAPI BackgroundTask after the DB session closes. Failures logged, never raised."""
+    try:
+        resend.Emails.send({
+            "from": "NextPrep <no-reply@yourdomain.com>",
+            "to": [seller_email],
+            "subject": "Someone is interested in your listing",
+            "html": (
+                "<p>A buyer has sent you a message about your listing on NextPrep. "
+                "Log in to reply.</p>"
+            ),
+        })
+        logger.info("First-message email sent: conversation=%s", conversation_id)
+    except Exception as e:
+        logger.error(
+            "Failed to send first-message email: conversation=%s error=%s",
+            conversation_id, str(e)
+        )
+
+
 async def send_abandoned_checkout_email(listing_id: UUID, seller_email: str) -> None:
     """Notifies the seller that a buyer abandoned checkout. Takes plain values
     (mirrors `send_sale_complete`) rather than a Transaction ORM object, since the

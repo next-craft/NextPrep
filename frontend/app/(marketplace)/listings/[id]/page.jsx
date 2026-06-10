@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { formatPrice } from '@/lib/utils'
 import BuyNowButton from '@/components/listings/BuyNowButton'
+import MessageSellerButton from '@/components/listings/MessageSellerButton'
 import { notFound } from 'next/navigation'
 
 export default async function ListingDetailPage({ params }) {
@@ -68,10 +69,7 @@ export default async function ListingDetailPage({ params }) {
       {!isOwner && user && listing.is_available && (
         <div className="mt-6 flex gap-3">
           <BuyNowButton listingId={listing.id} />
-          {/* Route defined in Spec 10 (Chat) frontend — update href when that spec is implemented */}
-          <a href={`/chat?listing=${listing.id}`} className="btn-secondary">
-            Chat with seller
-          </a>
+          <MessageSellerButton listingId={listing.id} />
         </div>
       )}
 
