@@ -11,7 +11,14 @@ class Base(DeclarativeBase):
     pass
 
 
-engine = create_async_engine(DATABASE_URL, echo=(ENVIRONMENT == "development"))
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=(ENVIRONMENT == "development"),
+    # Supabase transaction pooler (:6543) multiplexes backends per checkout and cannot
+    # retain psycopg3's server-side prepared statements — disable them to avoid
+    # DuplicatePreparedStatement ("_pg3_N already exists") at runtime.
+    connect_args={"prepare_threshold": None},
+)
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,

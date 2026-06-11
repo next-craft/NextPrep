@@ -9,7 +9,7 @@ from app.core.security import verify_token
 from app.schemas.listing import (
     ListingCreate, ListingCreateOut, ListingOut, ListingUpdate
 )
-from app.services import listing_service
+from app.services import listing_service, user_service
 
 router = APIRouter(prefix="/listings", tags=["listings"])
 logger = logging.getLogger(__name__)
@@ -38,6 +38,9 @@ async def create_listing(
     user=Depends(verify_token),
 ):
     seller_id = user["sub"]
+    seller = await user_service.get_user_by_id(db, seller_id)
+    if not seller or not seller.razorpay_account_id:
+        raise HTTPException(status_code=403, detail="Complete payment setup to start selling.")
     listing, passkey = await listing_service.create_listing(db, seller_id, data)
     return ListingCreateOut(listing=ListingOut.model_validate(listing), passkey=passkey)
 
@@ -51,7 +54,6 @@ async def get_listing(
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found.")
     await listing_service.increment_views(db, listing)
-    await db.refresh(listing)  # reflect the incremented value in the response
     return listing
 
 
@@ -98,6 +100,8 @@ async def regenerate_passkey(
         raise HTTPException(status_code=404, detail="Listing not found.")
     if str(listing.seller_id) != user["sub"]:
         raise HTTPException(status_code=403, detail="Not authorised.")
+    if listing.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Listing not found.")
     if listing.passkey_invalidated:
         raise HTTPException(
             status_code=400, detail="Cannot regenerate passkey for a sold listing."

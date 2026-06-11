@@ -1,0 +1,16 @@
+# Local development services for SMEI.
+# Brings up Redis on host port 6390 to match REDIS_URL=redis://localhost:6390/0.
+# Usage: docker compose up -d   (requires Docker installed locally)
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: smei-redis
+    ports:
+      - "6390:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+volumes:
+  redis-data:

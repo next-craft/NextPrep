@@ -7,6 +7,7 @@ import hmac
 import hashlib
 import logging
 import os
+import secrets
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -58,9 +59,16 @@ async def verify_token(authorization: str = Header(None)):
         )
         return payload
 
-    except JWTError as e:
+    except (JWTError, IndexError) as e:
+        # IndexError: Authorization header present but without a space (no scheme) —
+        # surface as 401, not an uncaught 500.
         logger.warning("JWT verification failed: %s", str(e))
         raise HTTPException(status_code=401, detail="Invalid token")
+
+
+def generate_passkey() -> str:
+    """8-digit zero-padded passkey from a CSPRNG. Plaintext is shown to the seller once."""
+    return str(secrets.randbelow(100_000_000)).zfill(8)
 
 
 def hash_passkey(passkey: str, listing_id: str) -> str:

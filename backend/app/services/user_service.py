@@ -20,7 +20,7 @@ async def update_user(db: AsyncSession, user_id: str, data: UserUpdate) -> User 
     user = await get_user_by_id(db, user_id)
     if not user:
         return None
-    for field, value in data.model_dump(exclude_none=True).items():
+    for field, value in data.model_dump(exclude_unset=True).items():
         setattr(user, field, value)
     await db.commit()
     await db.refresh(user)
