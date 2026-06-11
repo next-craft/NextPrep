@@ -39,6 +39,16 @@ def _serialize_message(message: Message) -> dict:
     }
 
 
+async def _safe_redis_get(redis, key: str):
+    """Redis GET that fails open: logs and returns None when Redis is unavailable
+    (per logging rules — every Redis failure is logged)."""
+    try:
+        return await redis.get(key)
+    except Exception as e:
+        logger.warning("Redis unavailable (get %s) — failing open: %s", key, str(e))
+        return None
+
+
 async def _notify_first_message(conversation_id_str: str, recipient_user_id_str: str) -> None:
     recipient_email = await supabase_admin.fetch_user_email(recipient_user_id_str)
     if recipient_email:
@@ -117,7 +127,7 @@ async def get_messages(
     await _assert_participant(db, conversation_id, user_id)
 
     cache_key = _cache_key(conversation_id)
-    cached = await redis.get(cache_key)
+    cached = await _safe_redis_get(redis, cache_key)
     if cached:
         messages = json.loads(cached)
     else:
@@ -128,10 +138,18 @@ async def get_messages(
         )
         msgs = result.scalars().all()
         messages = [_serialize_message(m) for m in msgs]
-        await redis.set(cache_key, json.dumps(messages), ex=MESSAGE_CACHE_TTL_SECONDS)
+        try:
+            await redis.set(cache_key, json.dumps(messages), ex=MESSAGE_CACHE_TTL_SECONDS)
+        except Exception as e:
+            logger.warning("Redis unavailable (cache set) — skipping cache: %s", str(e))
 
     for m in messages:
-        m["is_mine"] = m["sender_id"] == user_id
+        is_mine = m["sender_id"] == user_id
+        m["is_mine"] = is_mine
+        if is_mine:
+            # Don't reveal the recipient's read state of the sender's own messages —
+            # read receipts visible to the sender are out of scope (chat spec).
+            m["is_read"] = False
     return messages
 
 
@@ -149,7 +167,7 @@ async def send_message(
     conversation = await _assert_participant(db, conversation_id, sender_id)
 
     rate_key = _rate_key(conversation_id, sender_id)
-    count = await redis.get(rate_key)
+    count = await _safe_redis_get(redis, rate_key)
     if count and int(count) >= RATE_LIMIT_PER_HOUR:
         raise HTTPException(429, "Message rate limit reached. Try again later.")
 
@@ -160,12 +178,7 @@ async def send_message(
     )
     db.add(message)
 
-    new_count = await redis.incr(rate_key)
-    if new_count == 1:
-        await redis.expire(rate_key, 3600)
-
-    await redis.delete(_cache_key(conversation_id))
-
+    notify_first = False
     if not conversation.first_message_notified:
         result = await db.execute(
             update(Conversation)
@@ -176,16 +189,28 @@ async def send_message(
             .values(first_message_notified=True)
             .returning(Conversation.id)
         )
-        await db.flush()
-        if result.scalar_one_or_none() is not None:
-            background_tasks.add_task(
-                _notify_first_message,
-                str(conversation_id),
-                str(conversation.seller_id),
-            )
+        notify_first = result.scalar_one_or_none() is not None
 
     await db.commit()
     await db.refresh(message)
+
+    # Redis bookkeeping AFTER a successful commit: the hourly rate budget counts only
+    # persisted messages, and the cache is invalidated so the next poll re-reads the DB.
+    try:
+        new_count = await redis.incr(rate_key)
+        if new_count == 1:
+            await redis.expire(rate_key, 3600)
+        await redis.delete(_cache_key(conversation_id))
+    except Exception as e:
+        logger.warning("Redis unavailable during send_message bookkeeping: %s", str(e))
+
+    if notify_first:
+        background_tasks.add_task(
+            _notify_first_message,
+            str(conversation_id),
+            str(conversation.seller_id),
+        )
+
     logger.info(
         "Message sent: message=%s conversation=%s sender=%s",
         message.id, conversation_id, sender_id,
@@ -212,7 +237,10 @@ async def mark_read(
         .values(is_read=True)
     )
     await db.commit()
-    await redis.delete(_cache_key(conversation_id))
+    try:
+        await redis.delete(_cache_key(conversation_id))
+    except Exception as e:
+        logger.warning("Redis unavailable (cache delete) during mark_read: %s", str(e))
 
 
 async def _assert_participant(

@@ -9,6 +9,10 @@ logger = logging.getLogger(__name__)
 class User(Base):
     __tablename__ = "users"
 
+    # Spec 06 declares this PK as a FK into auth.users(id) ON DELETE CASCADE, but we do NOT
+    # add that FK: the app should not own a constraint into Supabase's managed `auth` schema,
+    # and test fixtures insert public.users rows directly. The handle_new_user trigger keeps
+    # public.users in sync with auth.users instead. See DECISIONS.md.
     id            = Column(UUID(as_uuid=True), primary_key=True)
     full_name     = Column(String, nullable=False)
     city          = Column(String)

@@ -1,16 +1,13 @@
-import secrets
 import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import select, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.listing import Listing
-from app.models.user import User
 from app.schemas.listing import ListingCreate, ListingUpdate
-from app.core.security import hash_passkey
+from app.core.security import generate_passkey, hash_passkey
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +15,8 @@ logger = logging.getLogger(__name__)
 async def create_listing(
     db: AsyncSession, seller_id: str, data: ListingCreate
 ) -> tuple[Listing, str]:
-    seller = await db.get(User, UUID(seller_id))
-    if not seller or not seller.razorpay_account_id:
-        raise HTTPException(403, "Complete payment setup to start selling.")
-
-    passkey = str(secrets.randbelow(100_000_000)).zfill(8)
+    # Seller onboarding gate (razorpay_account_id) is enforced in the router.
+    passkey = generate_passkey()
 
     listing = Listing(
         seller_id=UUID(seller_id),
@@ -98,6 +92,9 @@ async def increment_views(db: AsyncSession, listing: Listing) -> None:
         .values(views=Listing.views + 1)
     )
     await db.commit()
+    # The ORM-enabled UPDATE above already synchronizes `listing.views` in the session
+    # (synchronize_session='auto'), so the response reflects the new count without the
+    # extra SELECT that db.refresh() would cost.
 
 
 async def update_listing(
@@ -124,7 +121,7 @@ async def delete_listing(db: AsyncSession, listing: Listing) -> None:
 
 
 async def regenerate_passkey(db: AsyncSession, listing: Listing) -> str:
-    passkey = str(secrets.randbelow(100_000_000)).zfill(8)
+    passkey = generate_passkey()
     listing.passkey_hash = hash_passkey(passkey, str(listing.id))
     await db.commit()
     logger.info("passkey_regenerated listing=%s", listing.id)

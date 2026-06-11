@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 from app.core.config import FRONTEND_URL, ENVIRONMENT
 from app.core.redis import create_redis
 from app.jobs.scheduler import scheduler
@@ -35,3 +36,21 @@ app.include_router(payments.router, prefix="/v1")
 app.include_router(payments.status_router, prefix="/v1")
 app.include_router(users.router, prefix="/v1")
 app.include_router(chat.router, prefix="/v1")
+
+
+def _custom_openapi():
+    """Add a Bearer (JWT) security scheme so Swagger shows the global Authorize button.
+    verify_token still reads the token from the `Authorization` header exactly as before —
+    this only documents the scheme for the docs UI, so it does not change request handling."""
+    if app.openapi_schema:
+        return app.openapi_schema
+    schema = get_openapi(title=app.title, version="1.0.0", routes=app.routes)
+    schema.setdefault("components", {})["securitySchemes"] = {
+        "BearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
+    }
+    schema["security"] = [{"BearerAuth": []}]
+    app.openapi_schema = schema
+    return schema
+
+
+app.openapi = _custom_openapi

@@ -37,6 +37,7 @@ class Listing(Base):
         CheckConstraint("listing_type IN ('BOOK', 'NOTES', 'MODULE', 'BUNDLE')", name="ck_listing_type"),
         CheckConstraint("condition IN ('A', 'B', 'C')", name="ck_condition"),
         CheckConstraint("asking_price > 0", name="ck_asking_price_positive"),
+        CheckConstraint("original_price IS NULL OR original_price > 0", name="ck_original_price_positive"),
         CheckConstraint(
             "NOT (is_available = TRUE AND (sold_at IS NOT NULL OR deleted_at IS NOT NULL))",
             name="no_available_sold_listing",

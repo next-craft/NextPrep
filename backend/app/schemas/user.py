@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class UserMe(BaseModel):
@@ -36,3 +36,12 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     city: Optional[str] = None
     avatar_url: Optional[str] = None
+
+    @field_validator("full_name")
+    @classmethod
+    def full_name_not_empty(cls, v: Optional[str]) -> Optional[str]:
+        # Runs only when full_name is provided (omitted -> validator skipped, field left
+        # untouched by exclude_unset). Rejects explicit null / blank per spec ("Non-empty").
+        if v is None or not v.strip():
+            raise ValueError("full_name must be non-empty")
+        return v.strip()

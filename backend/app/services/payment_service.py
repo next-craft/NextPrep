@@ -121,13 +121,23 @@ async def create_onboarding_link(db: AsyncSession, seller: User, seller_email: s
     if seller.razorpay_account_id:
         return OnboardResponse(message="Already onboarded")
 
-    account = razorpay_client.account.create({
-        "email": seller_email,
-        "profile": {"category": "individual", "subcategory": "individual"},
-        "legal_business_name": seller.full_name,
-        "business_type": "individual",
-    })
-    onboarding_url = razorpay_client.stakeholder.create(account["id"], {})["url"]
+    try:
+        account = razorpay_client.account.create({
+            "email": seller_email,
+            "profile": {"category": "individual", "subcategory": "individual"},
+            "legal_business_name": seller.full_name,
+            "business_type": "individual",
+        })
+        onboarding_url = razorpay_client.stakeholder.create(account["id"], {})["url"]
+    except razorpay.errors.BadRequestError as e:
+        logger.error("Razorpay Route onboarding failed for seller=%s: %s", seller.id, str(e))
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"Razorpay onboarding is unavailable (linked-account API said: '{e}'). "
+                "This usually means Razorpay Route is not yet activated on the account."
+            ),
+        )
 
     logger.info("Razorpay onboarding started for seller=%s account=%s", seller.id, account["id"])
     return OnboardResponse(onboarding_url=onboarding_url, razorpay_account_id=account["id"])
@@ -138,7 +148,11 @@ async def complete_onboarding(db: AsyncSession, seller: User, razorpay_account_i
     if seller.razorpay_account_id:
         return OnboardCompleteResponse(status="already_complete")
 
-    account = razorpay_client.account.fetch(razorpay_account_id)
+    try:
+        account = razorpay_client.account.fetch(razorpay_account_id)
+    except razorpay.errors.BadRequestError as e:
+        logger.error("Razorpay account fetch failed for seller=%s: %s", seller.id, str(e))
+        raise HTTPException(status_code=502, detail=f"Could not verify Razorpay account: {e}")
     if account.get("profile", {}).get("status") != "activated":
         raise HTTPException(400, "Razorpay account KYC not yet complete. Please finish verification.")
 

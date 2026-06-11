@@ -55,14 +55,15 @@ async def _seed_users_async():
         await session.execute(
             text(
                 """
-                INSERT INTO public.users (id, full_name)
-                VALUES (:seller_id, :seller_name), (:other_id, :other_name)
+                INSERT INTO public.users (id, full_name, razorpay_account_id)
+                VALUES (:seller_id, :seller_name, :seller_acct), (:other_id, :other_name, NULL)
                 ON CONFLICT (id) DO NOTHING
                 """
             ),
             {
                 "seller_id": SELLER_ID,
                 "seller_name": "Test Seller",
+                "seller_acct": "acc_test_seller14",
                 "other_id": OTHER_USER_ID,
                 "other_name": "Test Other User",
             },

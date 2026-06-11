@@ -318,7 +318,7 @@ API_URL=http://localhost:8000/v1
 6. Image uploads direct to Cloudinary — never through FastAPI
 7. Parameterized queries only — never string-interpolate user input
 8. CORS: allow only `FRONTEND_URL` in production — never `*`
-9. `SUPABASE_SERVICE_ROLE_KEY` — background jobs only, never in request handlers (the Razorpay webhook handler is the sole approved exception: it is HMAC-signature-authenticated, not user-facing, and needs `fetch_user_email` to resolve the seller's notification address since `public.users` has no email column)
+9. `SUPABASE_SERVICE_ROLE_KEY` — background jobs only, never in user-facing request logic. Two approved exceptions, both limited to server-internal email resolution via `fetch_user_email` (needed because `public.users` has no email column — Supabase Auth owns identity): (a) the Razorpay webhook handler (HMAC-signature-authenticated, not user-facing); (b) the chat first-message seller notification, dispatched as a post-response `BackgroundTask` so the lookup never runs inside the request/response path. The service-role value is never logged, returned, or exposed to the client. See DECISIONS.md.
 10. `PASSKEY_HMAC_SECRET` — never logged, never in responses
 11. `hmac.compare_digest` for all hash comparisons — never `==`
 12. No reopening cancelled transactions — late webhooks always refund
