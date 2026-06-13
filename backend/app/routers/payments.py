@@ -19,6 +19,7 @@ from app.schemas.payment import (
     OnboardCompleteRequest,
     OnboardCompleteResponse,
     OnboardResponse,
+    TransactionListItem,
     TransactionStatusResponse,
     VerifyPasskeyRequest,
     VerifyPasskeyResponse,
@@ -211,6 +212,14 @@ async def handle_webhook(request: Request, background_tasks: BackgroundTasks, db
     )
 
     return Response(status_code=200)
+
+
+@status_router.get("/transactions", response_model=list[TransactionListItem])
+async def list_my_transactions(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(verify_token),
+):
+    return await payment_service.get_my_transactions(db, user["sub"])
 
 
 @status_router.get("/transactions/{transaction_id}/status", response_model=TransactionStatusResponse)

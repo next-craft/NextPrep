@@ -1,5 +1,6 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from uuid import UUID
 
 import razorpay
 from fastapi import HTTPException
@@ -80,7 +81,9 @@ async def initiate_payment(db: AsyncSession, redis, listing: Listing, buyer_id: 
     db.add(transaction)
     await db.flush()  # transaction.id needed before the Razorpay call
 
-    expire_at = datetime.utcnow() + timedelta(minutes=15)
+    # timezone-aware UTC — datetime.utcnow() is naive and .timestamp() would assume the
+    # local tz, pushing expire_by into the past on non-UTC machines (Razorpay then rejects it).
+    expire_at = datetime.now(timezone.utc) + timedelta(minutes=15)
     payment_link = razorpay_client.payment_link.create({
         "amount": transaction.amount_rupees * 100,  # paise — only at this boundary
         "currency": "INR",
@@ -161,3 +164,26 @@ async def complete_onboarding(db: AsyncSession, seller: User, razorpay_account_i
 
     logger.info("Seller onboarding complete: seller=%s razorpay_account=%s", seller.id, razorpay_account_id)
     return OnboardCompleteResponse(status="complete")
+
+
+async def get_my_transactions(db: AsyncSession, user_id: str) -> list[dict]:
+    """The caller's transactions as buyer and seller, newest first. Joins the listing
+    title (NULL when the listing was deleted — transactions.listing_id is ON DELETE SET NULL)."""
+    uid = UUID(user_id)
+    result = await db.execute(
+        select(Transaction, Listing.title)
+        .outerjoin(Listing, Transaction.listing_id == Listing.id)
+        .where((Transaction.buyer_id == uid) | (Transaction.seller_id == uid))
+        .order_by(Transaction.created_at.desc())
+    )
+    return [
+        {
+            "id": txn.id,
+            "role": "buyer" if txn.buyer_id == uid else "seller",
+            "listing_title": title,
+            "amount_rupees": txn.amount_rupees,
+            "status": txn.status,
+            "created_at": txn.created_at,
+        }
+        for txn, title in result.all()
+    ]

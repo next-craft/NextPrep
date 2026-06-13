@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel
@@ -30,3 +31,12 @@ class OnboardCompleteResponse(BaseModel):
 class TransactionStatusResponse(BaseModel):
     status: str
     amount_rupees: int
+
+
+class TransactionListItem(BaseModel):
+    id: uuid.UUID
+    role: str  # "buyer" | "seller" — relative to the requesting user
+    listing_title: Optional[str] = None  # NULL if the listing was deleted (FK SET NULL)
+    amount_rupees: int
+    status: str
+    created_at: datetime

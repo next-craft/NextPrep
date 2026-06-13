@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { CreditCard, ExternalLink, CheckCircle2, Loader2, ShieldCheck } from 'lucide-react'
 import api from '@/lib/api'
 
 const STORAGE_KEY = 'razorpay_onboarding_account_id'
@@ -14,7 +15,8 @@ export default function SellerOnboardPage() {
   }, [])
 
   const start = useMutation({
-    mutationFn: () => api.post('/payments/onboard').then(r => r.data),
+    // API: POST /payments/onboard — creates linked account, returns onboarding_url
+    mutationFn: () => api.post('/payments/onboard').then((r) => r.data),
     onSuccess: (data) => {
       if (data.razorpay_account_id) {
         sessionStorage.setItem(STORAGE_KEY, data.razorpay_account_id)
@@ -24,44 +26,128 @@ export default function SellerOnboardPage() {
         window.location.href = data.onboarding_url
       }
     },
-    onError: (err) => setError(err.response?.data?.detail || 'Something went wrong.'),
+    onError: (err) => setError(err.response?.data?.detail || 'Something went wrong. Please try again.'),
   })
 
   const complete = useMutation({
-    mutationFn: () => api.post('/payments/onboard/complete', { razorpay_account_id: accountId }).then(r => r.data),
+    // API: POST /payments/onboard/complete — verifies KYC, persists razorpay_account_id
+    mutationFn: () =>
+      api.post('/payments/onboard/complete', { razorpay_account_id: accountId }).then((r) => r.data),
     onSuccess: () => {
       sessionStorage.removeItem(STORAGE_KEY)
-      window.location.href = '/listings'
+      window.location.href = '/listings/new'
     },
-    onError: (err) => setError(err.response?.data?.detail || 'Something went wrong.'),
+    onError: (err) =>
+      setError(
+        err.response?.data?.detail ||
+          'We couldn’t confirm your KYC yet. If you just finished, give it a moment and try again.'
+      ),
   })
 
+  const step = accountId ? 2 : 1
+
   return (
-    <div className="max-w-md mx-auto p-6 space-y-4">
-      <h1 className="text-xl font-semibold">Connect your payment account</h1>
-      <p className="text-sm text-gray-600">
-        Sellers must complete a one-time KYC verification with Razorpay before listing items for sale.
-        Payments go directly to your linked account — the platform never holds your money.
-      </p>
-
-      {!accountId && (
-        <button onClick={() => start.mutate()} disabled={start.isPending} className="btn-primary">
-          {start.isPending ? 'Starting…' : 'Connect Payment Account'}
-        </button>
-      )}
-
-      {accountId && (
-        <div className="space-y-2">
-          <p className="text-sm text-gray-600">
-            Already started your KYC on Razorpay? Confirm here once it's complete.
-          </p>
-          <button onClick={() => complete.mutate()} disabled={complete.isPending} className="btn-primary">
-            {complete.isPending ? 'Checking…' : "I've completed KYC — confirm"}
-          </button>
+    <div className="container max-w-xl py-10">
+      <div className="card p-8">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
+            <CreditCard className="h-6 w-6" />
+          </div>
+          <div>
+            <h1 className="font-display text-2xl font-semibold">Set up payouts</h1>
+            <p className="text-sm text-muted-foreground">A one-time KYC with Razorpay.</p>
+          </div>
         </div>
-      )}
 
-      {error && <p className="text-red-600 text-sm">{error}</p>}
+        <p className="mt-5 flex items-start gap-2 rounded-lg bg-secondary/60 p-4 text-sm text-secondary-foreground">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+          Payments go <strong>directly</strong> to your linked account. NextPrep never holds your
+          money or takes a cut.
+        </p>
+
+        {/* stepper */}
+        <ol className="mt-6 space-y-3">
+          <Step
+            n={1}
+            active={step === 1}
+            done={step > 1}
+            title="Connect your account"
+            body="Start the Razorpay KYC. You’ll be redirected to complete verification."
+          />
+          <Step
+            n={2}
+            active={step === 2}
+            done={false}
+            title="Confirm KYC"
+            body="Once Razorpay approves you, confirm here to start selling."
+          />
+        </ol>
+
+        {error && (
+          <div className="mt-5 rounded-lg border border-[#e4b3a6] bg-[#f7e6e0] px-4 py-3 text-sm font-medium text-[#8f3322]">
+            {error}
+          </div>
+        )}
+
+        <div className="mt-6">
+          {step === 1 ? (
+            <button onClick={() => start.mutate()} disabled={start.isPending} className="btn-primary w-full">
+              {start.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Starting…
+                </>
+              ) : (
+                <>
+                  <ExternalLink className="h-4 w-4" /> Connect payment account
+                </>
+              )}
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <button onClick={() => complete.mutate()} disabled={complete.isPending} className="btn-primary w-full">
+                {complete.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Checking…
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" /> I&apos;ve completed KYC — confirm
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => start.mutate()}
+                disabled={start.isPending}
+                className="btn-ghost w-full"
+              >
+                Resume KYC on Razorpay
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
+  )
+}
+
+function Step({ n, active, done, title, body }) {
+  return (
+    <li className="flex gap-3">
+      <div
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+          done
+            ? 'bg-primary text-primary-foreground'
+            : active
+              ? 'bg-light_bronze-700 text-light_bronze-100'
+              : 'bg-muted text-muted-foreground'
+        }`}
+      >
+        {done ? <CheckCircle2 className="h-4 w-4" /> : n}
+      </div>
+      <div className={active || done ? '' : 'opacity-60'}>
+        <p className="font-medium">{title}</p>
+        <p className="text-sm text-muted-foreground">{body}</p>
+      </div>
+    </li>
   )
 }
