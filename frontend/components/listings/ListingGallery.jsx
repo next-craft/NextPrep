@@ -1,9 +1,14 @@
 'use client'
 import { useState } from 'react'
+import { AnimatePresence } from 'framer-motion'
 import { BookOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { m } from '@/components/shared/motion'
+import { DURATION, EASE } from '@/lib/motion'
 
-/** Image gallery for the listing detail page (≤5 images). */
+/** Image gallery for the listing detail page (≤5 images). Main image
+ *  crossfades between selections; the active thumbnail carries a shared
+ *  animated ring that slides between thumbs. */
 export default function ListingGallery({ images = [], title }) {
   const [active, setActive] = useState(0)
 
@@ -17,13 +22,20 @@ export default function ListingGallery({ images = [], title }) {
 
   return (
     <div className="space-y-3">
-      <div className="overflow-hidden rounded-lg border border-border bg-papaya_whip-700">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={images[active]}
-          alt={title}
-          className="aspect-[4/3] w-full bg-papaya_whip-700 object-contain"
-        />
+      <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-border bg-papaya_whip-700">
+        <AnimatePresence initial={false} mode="popLayout">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <m.img
+            key={active}
+            src={images[active]}
+            alt={title}
+            initial={{ opacity: 0, scale: 1.03 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: DURATION.base, ease: EASE.warm }}
+            className="absolute inset-0 h-full w-full bg-papaya_whip-700 object-contain"
+          />
+        </AnimatePresence>
       </div>
       {images.length > 1 && (
         <div className="flex gap-2 overflow-x-auto pb-1">
@@ -33,15 +45,20 @@ export default function ListingGallery({ images = [], title }) {
               type="button"
               onClick={() => setActive(i)}
               className={cn(
-                'h-16 w-16 shrink-0 overflow-hidden rounded-md border-2 transition-all',
-                i === active
-                  ? 'border-primary'
-                  : 'border-border opacity-60 hover:opacity-100'
+                'relative h-16 w-16 shrink-0 overflow-hidden rounded-md transition-opacity',
+                i === active ? 'opacity-100' : 'opacity-60 hover:opacity-100'
               )}
               aria-label={`View image ${i + 1}`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={url} alt="" className="h-full w-full object-cover" />
+              {i === active && (
+                <m.span
+                  layoutId="gallery-thumb-ring"
+                  className="pointer-events-none absolute inset-0 rounded-md ring-2 ring-primary ring-offset-1 ring-offset-card"
+                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                />
+              )}
             </button>
           ))}
         </div>

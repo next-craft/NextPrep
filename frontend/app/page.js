@@ -13,6 +13,8 @@ import {
 import ListingGrid from '@/components/listings/ListingGrid'
 import { ExamCategoryChip } from '@/components/shared/badges'
 import { POPULAR_EXAM_CATEGORIES } from '@/constants/examCategories'
+import { Reveal, Stagger, StaggerItem } from '@/components/shared/motion'
+import BookSpineStack from '@/components/shared/book-spine-stack'
 
 export const revalidate = 0
 
@@ -22,12 +24,6 @@ const STEPS = [
   { icon: MapPin, title: 'Meet', body: 'Inspect the material in person, no surprises.' },
   { icon: KeyRound, title: 'Passkey', body: 'The seller shares an 8-digit code when you’re happy.' },
   { icon: IndianRupee, title: 'Pay', body: 'Pay securely in-app; the seller is paid instantly.' },
-]
-
-const SPINES = [
-  { label: 'HC Verma · Physics', cls: 'bg-light_bronze-400 text-light_bronze-100 rotate-[-6deg]' },
-  { label: 'NCERT · Class 12', cls: 'bg-tea_green-500 text-tea_green-100 rotate-[3deg]' },
-  { label: 'Allen · NEET Bio', cls: 'bg-papaya_whip-400 text-light_bronze-100 rotate-[-2deg]' },
 ]
 
 export default async function Home() {
@@ -50,18 +46,20 @@ export default async function Home() {
       {/* ── Hero ───────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden">
         <div className="container grid items-center gap-10 py-14 lg:grid-cols-2 lg:py-20">
-          <div className="animate-fade-in-up">
-            <span className="chip mb-5 cursor-default">
-              <Users className="h-4 w-4" /> Student-to-student · India
-            </span>
-            <h1 className="font-display text-4xl font-semibold leading-[1.1] sm:text-5xl">
+          <Stagger as="div" gap={0.09}>
+            <StaggerItem>
+              <span className="chip mb-5 cursor-default">
+                <Users className="h-4 w-4" /> Student-to-student · India
+              </span>
+            </StaggerItem>
+            <StaggerItem as="h1" className="font-display text-4xl font-semibold leading-[1.1] sm:text-5xl">
               Buy &amp; sell JEE, NEET, UPSC &amp; CA books — from students, for students.
-            </h1>
-            <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted-foreground">
+            </StaggerItem>
+            <StaggerItem as="p" className="mt-5 max-w-xl text-lg leading-relaxed text-muted-foreground">
               India’s peer-to-peer marketplace for exam study material. Meet locally, inspect before
               you pay, and pass it on. No shipping, no middlemen.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            </StaggerItem>
+            <StaggerItem className="mt-8 flex flex-wrap gap-3">
               {user ? (
                 <>
                   <Link href="/listings" className="btn-primary px-6 text-base">
@@ -81,36 +79,23 @@ export default async function Home() {
                   </Link>
                 </>
               )}
-            </div>
-          </div>
+            </StaggerItem>
+          </Stagger>
 
           {/* decorative book stack */}
-          <div className="relative hidden h-72 lg:block">
-            <div className="absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-tea_green-700/50 blur-2xl" />
-            <div className="relative mx-auto flex h-full max-w-sm items-center justify-center gap-4">
-              {SPINES.map((s, i) => (
-                <div
-                  key={i}
-                  className={`flex h-52 w-32 flex-col justify-end rounded-lg border border-light_bronze-700 p-4 shadow-warm-lg ${s.cls}`}
-                  style={{ marginTop: i === 1 ? '-1.5rem' : '0' }}
-                >
-                  <span className="font-display text-sm font-semibold leading-tight">{s.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <BookSpineStack />
         </div>
       </section>
 
       {/* ── Trust strip ────────────────────────────────────────────────── */}
       <section className="border-y border-border bg-papaya_whip-800">
-        <div className="container grid gap-6 py-6 sm:grid-cols-3">
+        <Stagger inView gap={0.1} className="container grid gap-6 py-6 sm:grid-cols-3">
           {[
             { icon: MapPin, t: 'In-person meetup', d: 'Meet locally — no shipping, no courier.' },
             { icon: KeyRound, t: 'Passkey-protected', d: 'Pay only after you inspect the material.' },
             { icon: ShieldCheck, t: 'Real students', d: 'Google sign-in. No anonymous resellers.' },
           ].map((x) => (
-            <div key={x.t} className="flex items-start gap-3">
+            <StaggerItem key={x.t} className="flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
                 <x.icon className="h-5 w-5" />
               </div>
@@ -118,20 +103,27 @@ export default async function Home() {
                 <p className="font-medium">{x.t}</p>
                 <p className="text-sm text-muted-foreground">{x.d}</p>
               </div>
-            </div>
+            </StaggerItem>
           ))}
-        </div>
+        </Stagger>
       </section>
 
       {/* ── How it works ───────────────────────────────────────────────── */}
       <section className="container py-14">
-        <h2 className="text-center font-display text-2xl font-semibold sm:text-3xl">How it works</h2>
-        <p className="mx-auto mt-2 max-w-md text-center text-muted-foreground">
+        <Reveal inView as="h2" className="text-center font-display text-2xl font-semibold sm:text-3xl">
+          How it works
+        </Reveal>
+        <Reveal inView delay={0.05} as="p" className="mx-auto mt-2 max-w-md text-center text-muted-foreground">
           From finding the right book to paying for it — five simple steps.
-        </p>
-        <ol className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        </Reveal>
+        <Stagger inView gap={0.08} as="ol" className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {STEPS.map((s, i) => (
-            <li key={s.title} className="card flex flex-col gap-3 p-5">
+            <StaggerItem
+              key={s.title}
+              as="li"
+              whileHover={{ y: -4 }}
+              className="card flex flex-col gap-3 p-5 transition-shadow duration-300 hover:shadow-warm-lg"
+            >
               <div className="flex items-center justify-between">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
                   <s.icon className="h-5 w-5" />
@@ -142,23 +134,24 @@ export default async function Home() {
               </div>
               <p className="font-medium">{s.title}</p>
               <p className="text-sm text-muted-foreground">{s.body}</p>
-            </li>
+            </StaggerItem>
           ))}
-        </ol>
+        </Stagger>
       </section>
 
       {/* ── Recent listings ────────────────────────────────────────────── */}
       {recent.length > 0 && (
         <section className="container pb-14">
-          <div className="mb-5 flex items-end justify-between">
+          <Reveal inView className="mb-5 flex items-end justify-between">
             <h2 className="font-display text-2xl font-semibold">Fresh on NextPrep</h2>
             <Link
               href="/listings"
-              className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-light_bronze-200"
+              className="group inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-light_bronze-200"
             >
-              Browse all <ArrowRight className="h-4 w-4" />
+              Browse all{' '}
+              <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
-          </div>
+          </Reveal>
           <ListingGrid listings={recent} />
         </section>
       )}
@@ -166,18 +159,26 @@ export default async function Home() {
       {/* ── Browse by exam ─────────────────────────────────────────────── */}
       <section className="border-t border-border bg-papaya_whip-800">
         <div className="container py-14">
-          <h2 className="font-display text-2xl font-semibold">Browse by exam</h2>
-          <div className="mt-5 flex flex-wrap gap-2.5">
+          <Reveal inView as="h2" className="font-display text-2xl font-semibold">
+            Browse by exam
+          </Reveal>
+          <Stagger inView gap={0.04} className="mt-5 flex flex-wrap gap-2.5">
             {POPULAR_EXAM_CATEGORIES.map((value) => (
-              <ExamCategoryChip key={value} value={value} asLink />
+              <StaggerItem key={value} whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.96 }}>
+                <ExamCategoryChip value={value} asLink />
+              </StaggerItem>
             ))}
-          </div>
+          </Stagger>
         </div>
       </section>
 
       {/* ── Sell CTA ───────────────────────────────────────────────────── */}
       <section className="container py-16">
-        <div className="card flex flex-col items-center gap-4 bg-tea_green-800 p-10 text-center">
+        <Reveal
+          inView
+          y={20}
+          className="card flex flex-col items-center gap-4 bg-tea_green-800 p-10 text-center"
+        >
           <h2 className="font-display text-2xl font-semibold sm:text-3xl">
             Got books gathering dust?
           </h2>
@@ -187,7 +188,7 @@ export default async function Home() {
           <Link href={user ? '/listings/new' : '/login'} className="btn-primary px-6 text-base">
             Start selling
           </Link>
-        </div>
+        </Reveal>
       </section>
     </div>
   )

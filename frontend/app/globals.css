@@ -64,6 +64,19 @@
   :focus-visible {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
+
+  /* Respect reduced-motion globally — neutralise CSS animation/transition.
+     Framer Motion is gated separately via useReducedMotion(). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @layer components {
@@ -123,5 +136,18 @@
   }
   .skeleton {
     @apply animate-pulse rounded-md bg-light_bronze-800/70;
+  }
+
+  /* ── Warm underline-grow for text links (transform only, no layout shift) ─ */
+  .link-underline {
+    @apply relative transition-colors;
+  }
+  .link-underline::after {
+    content: '';
+    @apply absolute -bottom-0.5 left-0 h-px w-full origin-left scale-x-0 bg-current
+           transition-transform duration-300 ease-out;
+  }
+  .link-underline:hover::after {
+    @apply scale-x-100;
   }
 }

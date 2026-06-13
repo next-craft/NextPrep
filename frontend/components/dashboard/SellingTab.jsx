@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
+import { AnimatePresence } from 'framer-motion'
 import {
   MoreVertical,
   Pencil,
@@ -12,6 +13,8 @@ import {
   Store,
   BookOpen,
 } from 'lucide-react'
+import { m } from '@/components/shared/motion'
+import { EASE, SPRING } from '@/lib/motion'
 import api from '@/lib/api'
 import { formatPrice, listingStatus } from '@/lib/utils'
 import { ConditionBadge, ListingStatusBadge, ListingTypeBadge } from '@/components/shared/badges'
@@ -120,39 +123,49 @@ export default function SellingTab() {
                 {label} · {grouped[key].length}
               </h3>
               <div className="space-y-3">
-                {grouped[key].map((l) => (
-                  <div key={l.id} className="card flex items-center gap-4 p-3 sm:p-4">
-                    <Link
-                      href={`/listings/${l.id}`}
-                      className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-papaya_whip-700 text-light_bronze-500"
+                <AnimatePresence mode="popLayout">
+                  {grouped[key].map((l, i) => (
+                    <m.div
+                      key={l.id}
+                      layout
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0, transition: { delay: i * 0.04, duration: 0.3, ease: EASE.warm } }}
+                      exit={{ opacity: 0, scale: 0.96, x: -12, transition: { duration: 0.2, ease: EASE.warm } }}
+                      whileHover={{ y: -2, transition: SPRING }}
+                      className="card flex items-center gap-4 p-3 sm:p-4"
                     >
-                      {l.images?.[0] ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={l.images[0]} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <BookOpen className="h-6 w-6" />
-                      )}
-                    </Link>
-                    <div className="min-w-0 flex-1">
-                      <Link href={`/listings/${l.id}`} className="block truncate font-medium hover:underline">
-                        {l.title}
+                      <Link
+                        href={`/listings/${l.id}`}
+                        className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-papaya_whip-700 text-light_bronze-500"
+                      >
+                        {l.images?.[0] ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={l.images[0]} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <BookOpen className="h-6 w-6" />
+                        )}
                       </Link>
-                      <p className="mt-0.5 text-sm font-semibold">{formatPrice(l.asking_price)}</p>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                        <ListingStatusBadge status={key} />
-                        <ConditionBadge code={l.condition} showLabel={false} />
-                        <ListingTypeBadge type={l.listing_type} />
+                      <div className="min-w-0 flex-1">
+                        <Link href={`/listings/${l.id}`} className="block truncate font-medium hover:underline">
+                          {l.title}
+                        </Link>
+                        <p className="mt-0.5 text-sm font-semibold">{formatPrice(l.asking_price)}</p>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                          <ListingStatusBadge status={key} />
+                          <ConditionBadge code={l.condition} showLabel={false} />
+                          <ListingTypeBadge type={l.listing_type} />
+                        </div>
                       </div>
-                    </div>
-                    <RowActions
-                      status={key}
-                      onEdit={() => setEditing(l)}
-                      onPauseResume={() => pauseResume(l)}
-                      onRegenerate={() => regenerate(l)}
-                      onDelete={() => setDeleting(l)}
-                    />
-                  </div>
-                ))}
+                      <RowActions
+                        status={key}
+                        onEdit={() => setEditing(l)}
+                        onPauseResume={() => pauseResume(l)}
+                        onRegenerate={() => regenerate(l)}
+                        onDelete={() => setDeleting(l)}
+                      />
+                    </m.div>
+                  ))}
+                </AnimatePresence>
               </div>
             </section>
           )

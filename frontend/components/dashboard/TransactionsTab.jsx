@@ -4,6 +4,7 @@ import { Receipt, ArrowRight } from 'lucide-react'
 import { useMyTransactions } from '@/lib/queries'
 import { TransactionStatusBadge } from '@/components/shared/badges'
 import { EmptyState } from '@/components/shared/states'
+import { Stagger, StaggerItem } from '@/components/shared/motion'
 import { formatPrice, formatDate } from '@/lib/utils'
 
 export default function TransactionsTab() {
@@ -24,9 +25,9 @@ export default function TransactionsTab() {
   }
 
   return (
-    <div className="space-y-3">
+    <Stagger gap={0.05} className="space-y-3">
       {txns.map((t) => (
-        <div key={t.id} className="card flex items-center gap-4 p-4">
+        <StaggerItem key={t.id} className="card flex items-center gap-4 p-4">
           <div className="min-w-0 flex-1">
             <p className="truncate font-medium">{t.listing_title || 'Listing removed'}</p>
             <p className="mt-0.5 text-xs capitalize text-muted-foreground">
@@ -47,8 +48,8 @@ export default function TransactionsTab() {
               )}
             </div>
           </div>
-        </div>
+        </StaggerItem>
       ))}
-    </div>
+    </Stagger>
   )
 }

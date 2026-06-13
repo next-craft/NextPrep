@@ -1,8 +1,11 @@
 'use client'
 import Link from 'next/link'
+import { AnimatePresence } from 'framer-motion'
 import { BookOpen, MessageCircle } from 'lucide-react'
 import { cn, formatRelativeTime, listingStatus } from '@/lib/utils'
 import { EmptyState } from '@/components/shared/states'
+import { m } from '@/components/shared/motion'
+import { EASE, SPRING } from '@/lib/motion'
 
 const STATUS = {
   active: { label: 'Available', cls: 'border-[#bcd0a3] bg-[#e9f0dd] text-[#3f6733]' },
@@ -23,7 +26,8 @@ export default function ConversationList({
 
   return (
     <div className="space-y-3">
-      {conversations.map((c) => {
+      <AnimatePresence initial mode="popLayout">
+        {conversations.map((c, idx) => {
         const removed = !c.listing_id || !c.listing
         const status = removed ? null : listingStatus(c.listing)
         const isBuyer = meId && c.buyer_id === meId
@@ -33,7 +37,15 @@ export default function ConversationList({
         const time = formatRelativeTime(c.lastMessage?.created_at || c.created_at)
 
         return (
-          <div key={c.id} className="card flex items-center gap-3 p-3">
+          <m.div
+            key={c.id}
+            layout
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0, transition: { delay: idx * 0.04, duration: 0.3, ease: EASE.warm } }}
+            exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2 } }}
+            whileHover={{ y: -2, transition: SPRING }}
+            className="card flex items-center gap-3 p-3"
+          >
             <Link href={`/chat/${c.id}`} className="flex min-w-0 flex-1 items-center gap-3">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-papaya_whip-700 text-light_bronze-500">
                 {c.listing?.images?.[0] ? (
@@ -61,9 +73,16 @@ export default function ConversationList({
 
             <div className="flex shrink-0 flex-col items-end gap-1.5">
               {c.unreadCount > 0 && (
-                <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-1.5 text-xs font-semibold text-destructive-foreground">
-                  {c.unreadCount}
-                </span>
+                <m.span
+                  key={c.unreadCount}
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={SPRING}
+                  className="relative inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-1.5 text-xs font-semibold text-destructive-foreground"
+                >
+                  <span className="absolute inset-0 animate-ping rounded-full bg-destructive opacity-60" />
+                  <span className="relative">{c.unreadCount}</span>
+                </m.span>
               )}
               {status && <span className={cn('badge', STATUS[status].cls)}>{STATUS[status].label}</span>}
               {isBuyer && status === 'active' && (
@@ -72,9 +91,10 @@ export default function ConversationList({
                 </Link>
               )}
             </div>
-          </div>
+          </m.div>
         )
       })}
+      </AnimatePresence>
     </div>
   )
 }

@@ -12,6 +12,7 @@ import { CITIES } from '@/constants/cities'
 import { SUBJECTS } from '@/constants/subjects'
 import ImageUploader from '@/components/listings/ImageUploader'
 import PasskeyReveal from '@/components/listings/PasskeyReveal'
+import { Reveal, Stagger, StaggerItem } from '@/components/shared/motion'
 
 export default function CreateListingForm() {
   const { data: me, isLoading } = useMe()
@@ -48,7 +49,7 @@ export default function CreateListingForm() {
   if (!me?.razorpay_account_id) {
     return (
       <div className="container py-16">
-        <div className="card mx-auto max-w-md p-8 text-center">
+        <div className="card mx-auto max-w-md animate-scale-in p-8 text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
             <CreditCard className="h-6 w-6" />
           </div>
@@ -88,20 +89,22 @@ export default function CreateListingForm() {
   return (
     <div className="container py-8">
       <div className="mx-auto max-w-2xl">
-        <h1 className="font-display text-2xl font-semibold sm:text-3xl">Create a listing</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          List physical study material you own. No pirated scans, photocopied books, or unauthorized
-          reproductions.
-        </p>
+        <Reveal>
+          <h1 className="font-display text-2xl font-semibold sm:text-3xl">Create a listing</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            List physical study material you own. No pirated scans, photocopied books, or unauthorized
+            reproductions.
+          </p>
+        </Reveal>
 
         {error && (
-          <div className="mt-4 rounded-lg border border-[#e4b3a6] bg-[#f7e6e0] px-4 py-3 text-sm font-medium text-[#8f3322]">
+          <div className="mt-4 animate-shake rounded-lg border border-[#e4b3a6] bg-[#f7e6e0] px-4 py-3 text-sm font-medium text-[#8f3322]">
             {error.response?.data?.detail || 'Something went wrong. Please check the form and try again.'}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-          <div>
+        <Stagger as="form" onSubmit={handleSubmit} gap={0.05} className="mt-6 space-y-5">
+          <StaggerItem>
             <label htmlFor="title" className="label">Title *</label>
             <input
               id="title"
@@ -111,9 +114,9 @@ export default function CreateListingForm() {
               className="input"
               placeholder="e.g. HC Verma Concepts of Physics Vol 1 & 2"
             />
-          </div>
+          </StaggerItem>
 
-          <div>
+          <StaggerItem>
             <label htmlFor="description" className="label">Description</label>
             <textarea
               id="description"
@@ -123,15 +126,15 @@ export default function CreateListingForm() {
               className="textarea"
               placeholder="Edition, what's included, any markings or wear…"
             />
-          </div>
+          </StaggerItem>
 
-          <div>
+          <StaggerItem>
             <label className="label">Images *</label>
             <ImageUploader value={images} onChange={setImages} max={5} />
             <p className="mt-1 text-xs text-muted-foreground">At least one image is required.</p>
-          </div>
+          </StaggerItem>
 
-          <div className="grid gap-5 sm:grid-cols-2">
+          <StaggerItem className="grid gap-5 sm:grid-cols-2">
             <div>
               <label htmlFor="exam_category" className="label">Exam category *</label>
               <select id="exam_category" name="exam_category" required defaultValue="" className="input">
@@ -197,18 +200,20 @@ export default function CreateListingForm() {
                 ))}
               </select>
             </div>
-          </div>
+          </StaggerItem>
 
-          <button type="submit" disabled={isPending || images.length === 0} className="btn-primary w-full">
-            {isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Creating…
-              </>
-            ) : (
-              'Create listing'
-            )}
-          </button>
-        </form>
+          <StaggerItem>
+            <button type="submit" disabled={isPending || images.length === 0} className="btn-primary w-full">
+              {isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Creating…
+                </>
+              ) : (
+                'Create listing'
+              )}
+            </button>
+          </StaggerItem>
+        </Stagger>
       </div>
     </div>
   )

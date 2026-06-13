@@ -13,7 +13,7 @@ export default function ListingCard({ listing, className }) {
     <Link
       href={`/listings/${listing.id}`}
       className={cn(
-        'card group flex flex-col overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-warm-lg',
+        'card group flex flex-col overflow-hidden transition-shadow duration-300 hover:shadow-warm-lg',
         className
       )}
     >
@@ -25,7 +25,7 @@ export default function ListingCard({ listing, className }) {
             alt={listing.title}
             loading="lazy"
             className={cn(
-              'h-full w-full object-cover transition-transform duration-500 group-hover:scale-105',
+              'h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105',
               dimmed && 'opacity-70'
             )}
           />
@@ -35,10 +35,10 @@ export default function ListingCard({ listing, className }) {
           </div>
         )}
         {status === 'sold' && (
-          <span className="badge absolute left-3 top-3 border-[#e4b3a6] bg-[#f7e6e0] text-[#8f3322]">Sold</span>
+          <span className="badge absolute left-3 top-3 animate-scale-in border-[#e4b3a6] bg-[#f7e6e0] text-[#8f3322]">Sold</span>
         )}
         {status === 'paused' && (
-          <span className="badge absolute left-3 top-3 border-[#ecd6a0] bg-[#fbf1d6] text-[#8a5e12]">Paused</span>
+          <span className="badge absolute left-3 top-3 animate-scale-in border-[#ecd6a0] bg-[#fbf1d6] text-[#8a5e12]">Paused</span>
         )}
       </div>
 

@@ -73,7 +73,7 @@ export default function EditListingDialog({ listing, open, onOpenChange, onSaved
         </DialogHeader>
 
         <form onSubmit={submit} className="space-y-4">
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex animate-fade-in flex-wrap items-center gap-1.5 rounded-md bg-muted/50 px-2.5 py-1.5">
             <span className="badge">{LISTING_TYPE_LABEL[listing.listing_type] ?? listing.listing_type}</span>
             <span className="badge">{EXAM_CATEGORY_LABEL[listing.exam_category] ?? listing.exam_category}</span>
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">

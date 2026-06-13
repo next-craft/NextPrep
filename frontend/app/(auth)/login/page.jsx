@@ -3,6 +3,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { MapPin, KeyRound, ShieldCheck } from 'lucide-react'
+import { m, useReducedMotion, Stagger, StaggerItem } from '@/components/shared/motion'
+import { SPRING_SOFT } from '@/lib/motion'
 
 function GoogleIcon() {
   return (
@@ -17,6 +19,7 @@ function GoogleIcon() {
 
 export default function LoginPage() {
   const supabase = createClient()
+  const reduced = useReducedMotion()
   const [loading, setLoading] = useState(false)
 
   const handleGoogleLogin = async () => {
@@ -31,35 +34,57 @@ export default function LoginPage() {
 
   return (
     <div className="container flex min-h-[calc(100vh-4rem)] items-center justify-center py-12">
-      <div className="card w-full max-w-md animate-scale-in p-8 text-center">
-        <Link href="/" className="font-display text-2xl font-semibold tracking-tight">
-          Next<span className="text-primary">Prep</span>
-        </Link>
-        <h1 className="mt-6 font-display text-2xl font-semibold">Welcome</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Buy and sell JEE, NEET, UPSC &amp; CA study material — from students, for students.
-        </p>
+      <m.div
+        initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={SPRING_SOFT}
+        className="card w-full max-w-md p-8 text-center"
+      >
+        <Stagger gap={0.07} delay={0.12}>
+          <StaggerItem>
+            <Link href="/" className="font-display text-2xl font-semibold tracking-tight">
+              Next<span className="text-primary">Prep</span>
+            </Link>
+          </StaggerItem>
+          <StaggerItem as="h1" className="mt-6 font-display text-2xl font-semibold">
+            Welcome
+          </StaggerItem>
+          <StaggerItem as="p" className="mt-2 text-sm text-muted-foreground">
+            Buy and sell JEE, NEET, UPSC &amp; CA study material — from students, for students.
+          </StaggerItem>
 
-        <button onClick={handleGoogleLogin} disabled={loading} className="btn-primary mt-8 w-full">
-          <GoogleIcon /> {loading ? 'Redirecting…' : 'Continue with Google'}
-        </button>
+          <StaggerItem
+            as="button"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            whileHover={{ scale: 1.015 }}
+            whileTap={{ scale: 0.98 }}
+            className="btn-primary mt-8 w-full"
+          >
+            <GoogleIcon /> {loading ? 'Redirecting…' : 'Continue with Google'}
+          </StaggerItem>
 
-        <p className="mt-4 text-xs text-muted-foreground">
-          We use Google only to verify you&apos;re a real student. No passwords, no spam.
-        </p>
+          <StaggerItem as="p" className="mt-4 text-xs text-muted-foreground">
+            We use Google only to verify you&apos;re a real student. No passwords, no spam.
+          </StaggerItem>
+        </Stagger>
 
-        <div className="mt-8 grid grid-cols-3 gap-3 border-t border-border pt-6 text-xs text-muted-foreground">
-          <span className="flex flex-col items-center gap-1.5">
+        <Stagger
+          gap={0.08}
+          delay={0.4}
+          className="mt-8 grid grid-cols-3 gap-3 border-t border-border pt-6 text-xs text-muted-foreground"
+        >
+          <StaggerItem as="span" className="flex flex-col items-center gap-1.5">
             <MapPin className="h-4 w-4 text-primary" /> Meet locally
-          </span>
-          <span className="flex flex-col items-center gap-1.5">
+          </StaggerItem>
+          <StaggerItem as="span" className="flex flex-col items-center gap-1.5">
             <KeyRound className="h-4 w-4 text-primary" /> Passkey pay
-          </span>
-          <span className="flex flex-col items-center gap-1.5">
+          </StaggerItem>
+          <StaggerItem as="span" className="flex flex-col items-center gap-1.5">
             <ShieldCheck className="h-4 w-4 text-primary" /> Verified
-          </span>
-        </div>
-      </div>
+          </StaggerItem>
+        </Stagger>
+      </m.div>
     </div>
   )
 }
