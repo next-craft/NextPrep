@@ -1,16 +1,19 @@
 import ListingCard from './ListingCard'
+import { cn } from '@/lib/utils'
 
-export default function ListingGrid({ listings }) {
-  if (!listings.length) {
-    return (
-      <p className="text-gray-500 text-center py-20">
-        No listings found for your filters. Try removing a filter or broadening your search.
-      </p>
-    )
-  }
+/** Pure responsive grid. Empty-state handling lives in the page (it knows
+ *  whether filters are active). */
+export default function ListingGrid({ listings, className }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {listings.map(l => <ListingCard key={l.id} listing={l} />)}
+    <div
+      className={cn(
+        'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
+        className
+      )}
+    >
+      {listings.map((listing) => (
+        <ListingCard key={listing.id} listing={listing} />
+      ))}
     </div>
   )
 }

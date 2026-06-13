@@ -25,7 +25,7 @@ class ListingCreate(BaseModel):
     asking_price: int = Field(..., gt=0)
     original_price: Optional[int] = Field(None, gt=0)
     city: str = Field(..., min_length=1)
-    images: Optional[list[str]] = Field(None, max_length=5)
+    images: list[str] = Field(..., min_length=1, max_length=5)  # at least one image required
 
     @field_validator("exam_category")
     @classmethod

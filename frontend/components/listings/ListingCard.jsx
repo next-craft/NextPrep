@@ -1,25 +1,65 @@
-import { formatPrice } from '@/lib/utils'
 import Link from 'next/link'
+import { MapPin, BookOpen } from 'lucide-react'
+import PriceBlock from '@/components/shared/price-block'
+import { ConditionBadge, ListingTypeBadge } from '@/components/shared/badges'
+import { cn, listingStatus } from '@/lib/utils'
+import { EXAM_CATEGORY_LABEL } from '@/constants/examCategories'
 
-export default function ListingCard({ listing }) {
+export default function ListingCard({ listing, className }) {
+  const status = listingStatus(listing)
+  const dimmed = status !== 'active'
+
   return (
-    <Link href={`/listings/${listing.id}`} className="block rounded-xl border hover:shadow-md transition">
-      {listing.images?.[0] ? (
-        <img src={listing.images[0]} alt={listing.title} className="h-48 w-full object-cover rounded-t-xl" />
-      ) : (
-        <div className="h-48 w-full bg-gray-100 rounded-t-xl flex items-center justify-center text-gray-400 text-sm">
-          No image
-        </div>
+    <Link
+      href={`/listings/${listing.id}`}
+      className={cn(
+        'card group flex flex-col overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-warm-lg',
+        className
       )}
-      <div className="p-4 space-y-1">
-        <p className="font-semibold line-clamp-2">{listing.title}</p>
-        <p className="text-lg font-bold text-green-700">{formatPrice(listing.asking_price)}</p>
-        <div className="flex gap-2 flex-wrap text-xs text-gray-500">
-          <span>{listing.listing_type}</span>
-          <span>Cond. {listing.condition}</span>
-          <span>{listing.city}</span>
+    >
+      <div className="relative aspect-[4/3] overflow-hidden bg-papaya_whip-700">
+        {listing.images?.[0] ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={listing.images[0]}
+            alt={listing.title}
+            loading="lazy"
+            className={cn(
+              'h-full w-full object-cover transition-transform duration-500 group-hover:scale-105',
+              dimmed && 'opacity-70'
+            )}
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-light_bronze-500">
+            <BookOpen className="h-10 w-10" />
+          </div>
+        )}
+        {status === 'sold' && (
+          <span className="badge absolute left-3 top-3 border-[#e4b3a6] bg-[#f7e6e0] text-[#8f3322]">Sold</span>
+        )}
+        {status === 'paused' && (
+          <span className="badge absolute left-3 top-3 border-[#ecd6a0] bg-[#fbf1d6] text-[#8a5e12]">Paused</span>
+        )}
+      </div>
+
+      <div className="flex flex-1 flex-col gap-2.5 p-4">
+        <h3 className="line-clamp-2 font-medium leading-snug text-foreground">{listing.title}</h3>
+        <PriceBlock asking={listing.asking_price} original={listing.original_price} size="sm" />
+
+        <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-1">
+          <ListingTypeBadge type={listing.listing_type} />
+          <ConditionBadge code={listing.condition} showLabel={false} />
         </div>
-        <p className="text-xs text-gray-400">{listing.exam_category}</p>
+
+        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span className="inline-flex min-w-0 items-center gap-1">
+            <MapPin className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{listing.city}</span>
+          </span>
+          <span className="shrink-0 truncate text-right">
+            {EXAM_CATEGORY_LABEL[listing.exam_category] ?? listing.exam_category}
+          </span>
+        </div>
       </div>
     </Link>
   )

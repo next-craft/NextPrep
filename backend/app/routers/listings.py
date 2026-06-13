@@ -23,11 +23,13 @@ async def list_listings(
     city: str | None = Query(None),
     condition: str | None = Query(None),
     listing_type: str | None = Query(None),
+    seller_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     return await listing_service.get_listings(
         db, q=q, exam_category=exam_category, subject=subject,
-        city=city, condition=condition, listing_type=listing_type
+        city=city, condition=condition, listing_type=listing_type,
+        seller_id=seller_id,
     )
 
 
@@ -43,6 +45,15 @@ async def create_listing(
         raise HTTPException(status_code=403, detail="Complete payment setup to start selling.")
     listing, passkey = await listing_service.create_listing(db, seller_id, data)
     return ListingCreateOut(listing=ListingOut.model_validate(listing), passkey=passkey)
+
+
+@router.get("/mine", response_model=list[ListingOut])
+async def my_listings(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(verify_token),
+):
+    # Declared BEFORE /{listing_id} so "mine" isn't parsed as a listing UUID.
+    return await listing_service.get_my_listings(db, user["sub"])
 
 
 @router.get("/{listing_id}", response_model=ListingOut)
