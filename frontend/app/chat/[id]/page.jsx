@@ -1,33 +1,62 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { use, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft, BookOpen, Send, Loader2 } from 'lucide-react'
 import api from '@/lib/api'
+import { useMe } from '@/lib/queries'
+import { cn, formatPrice, formatRelativeTime, listingStatus } from '@/lib/utils'
+import BuyNowButton from '@/components/listings/BuyNowButton'
+
+const RATE_LIMIT_COPY = "You've sent too many messages. Please wait before sending more."
 
 export default function ChatPage({ params }) {
-  const conversationId = params.id
+  const { id: conversationId } = use(params)
   const queryClient = useQueryClient()
+  const { data: me } = useMe()
   const [body, setBody] = useState('')
   const bottomRef = useRef(null)
 
+  // No GET /conversations/{id}; derive meta (listing_id, buyer/seller) from the list.
+  // TODO(backend): a single-conversation endpoint would avoid this.
+  const { data: conversation } = useQuery({
+    queryKey: ['conversation', conversationId],
+    queryFn: async () => {
+      const { data } = await api.get('/conversations')
+      return data.find((c) => c.id === conversationId) || null
+    },
+    staleTime: 30_000,
+  })
+
+  const listingId = conversation?.listing_id
+  // Messages don't include the listing summary — fetch it separately.
+  const { data: listing } = useQuery({
+    queryKey: ['listing', listingId],
+    queryFn: async () => (await api.get(`/listings/${listingId}`)).data,
+    enabled: !!listingId,
+    staleTime: 30_000,
+  })
+
+  // API: GET /conversations/{id}/messages — poll every 4s
   const { data: messages = [] } = useQuery({
     queryKey: ['messages', conversationId],
-    queryFn: () => api.get(`/conversations/${conversationId}/messages`).then(r => r.data),
+    queryFn: () => api.get(`/conversations/${conversationId}/messages`).then((r) => r.data),
     refetchInterval: 4000,
   })
 
   const send = useMutation({
-    mutationFn: () =>
-      api.post(`/conversations/${conversationId}/messages`, { body }),
+    // API: POST /conversations/{id}/messages
+    mutationFn: () => api.post(`/conversations/${conversationId}/messages`, { body: body.trim() }),
     onSuccess: () => {
       setBody('')
       queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })
     },
   })
 
-  const unreadCount = messages.filter(m => !m.is_read && !m.is_mine).length
-
+  const unreadCount = messages.filter((m) => !m.is_read && !m.is_mine).length
   useEffect(() => {
     if (unreadCount === 0) return
+    // API: PATCH /conversations/{id}/messages/read
     api.patch(`/conversations/${conversationId}/messages/read`).catch(() => {})
   }, [conversationId, unreadCount])
 
@@ -35,48 +64,118 @@ export default function ChatPage({ params }) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  const isBuyer = conversation && me?.id && conversation.buyer_id === me.id
+  const status = listing ? listingStatus(listing) : null
+  const available = status === 'active'
+
+  const sendError = send.isError
+    ? send.error?.response?.status === 429
+      ? RATE_LIMIT_COPY
+      : send.error?.response?.data?.detail || 'Failed to send message.'
+    : null
+
   return (
-    <div className="flex flex-col h-screen max-w-2xl mx-auto">
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`rounded p-2 text-sm max-w-[75%] ${m.is_mine ? 'ml-auto bg-primary text-primary-foreground' : 'bg-muted'}`}
+    <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-2xl flex-col">
+      {/* Pinned listing summary */}
+      <div className="sticky top-16 z-10 border-b border-border bg-cornsilk/90 backdrop-blur">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <Link href="/dashboard?tab=buying" className="btn-ghost h-9 w-9 px-0" aria-label="Back">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <Link
+            href={listingId ? `/listings/${listingId}` : '#'}
+            className="flex min-w-0 flex-1 items-center gap-3"
           >
-            {m.body}
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md bg-papaya_whip-700 text-light_bronze-500">
+              {listing?.images?.[0] ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={listing.images[0]} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <BookOpen className="h-5 w-5" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium leading-tight">
+                {listing ? listing.title : conversation === null ? 'Listing removed' : 'Loading…'}
+              </p>
+              {listing && (
+                <p className="text-sm text-muted-foreground">
+                  {formatPrice(listing.asking_price)}
+                  {status === 'sold' && ' · Sold'}
+                  {status === 'paused' && ' · Unavailable'}
+                </p>
+              )}
+            </div>
+          </Link>
+          {isBuyer && available && (
+            <div className="shrink-0">
+              <BuyNowButton listingId={listingId} className="h-10 px-4" />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Thread */}
+      <div className="flex-1 space-y-2 px-4 py-5">
+        {messages.length === 0 && (
+          <p className="py-10 text-center text-sm text-muted-foreground">
+            No messages yet. Say hello and arrange a meetup. Never share contact details or your
+            passkey here.
+          </p>
+        )}
+        {messages.map((m) => (
+          <div key={m.id} className={cn('flex flex-col', m.is_mine ? 'items-end' : 'items-start')}>
+            <div
+              className={cn(
+                'max-w-[80%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm leading-relaxed',
+                m.is_mine
+                  ? 'rounded-br-sm bg-primary text-primary-foreground'
+                  : 'rounded-bl-sm border border-border bg-card text-foreground'
+              )}
+            >
+              {m.body}
+            </div>
+            <span className="mt-0.5 px-1 text-[11px] text-muted-foreground">
+              {formatRelativeTime(m.created_at)}
+              {m.is_mine && (m.is_read ? ' · Read' : ' · Sent')}
+            </span>
           </div>
         ))}
         <div ref={bottomRef} />
       </div>
 
-      <div className="border-t p-3 flex gap-2">
-        <input
-          className="flex-1 border rounded px-3 py-2 text-sm"
-          placeholder="Type a message..."
-          value={body}
-          onChange={e => setBody(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey && body.trim()) {
-              e.preventDefault()
-              send.mutate()
-            }
-          }}
-          maxLength={2000}
-        />
-        <button
-          onClick={() => send.mutate()}
-          disabled={!body.trim() || send.isPending}
-          className="px-4 py-2 rounded bg-primary text-primary-foreground text-sm disabled:opacity-50"
-        >
-          Send
-        </button>
+      {/* Composer */}
+      <div className="sticky bottom-0 border-t border-border bg-cornsilk/90 px-4 py-3 backdrop-blur">
+        {sendError && <p className="mb-2 text-xs font-medium text-destructive">{sendError}</p>}
+        <div className="flex items-end gap-2">
+          <textarea
+            className="textarea max-h-32 min-h-[2.75rem] flex-1 resize-none py-2.5"
+            placeholder="Type a message…"
+            rows={1}
+            value={body}
+            maxLength={2000}
+            onChange={(e) => setBody(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                if (body.trim() && !send.isPending) send.mutate()
+              }
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => send.mutate()}
+            disabled={!body.trim() || send.isPending}
+            className="btn-primary h-11 w-11 shrink-0 px-0"
+            aria-label="Send message"
+          >
+            {send.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+          </button>
+        </div>
+        {body.length > 1800 && (
+          <p className="mt-1 text-right text-[11px] text-muted-foreground">{body.length}/2000</p>
+        )}
       </div>
-
-      {send.isError && (
-        <p className="text-red-500 text-xs px-3 pb-2">
-          {send.error?.response?.data?.detail ?? 'Failed to send message.'}
-        </p>
-      )}
     </div>
   )
 }
