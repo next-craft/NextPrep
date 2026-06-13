@@ -1,8 +1,11 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { AnimatePresence } from 'framer-motion'
 import { CreditCard, ExternalLink, CheckCircle2, Loader2, ShieldCheck } from 'lucide-react'
 import api from '@/lib/api'
+import { m, useReducedMotion, Reveal } from '@/components/shared/motion'
+import { SPRING, EASE } from '@/lib/motion'
 
 const STORAGE_KEY = 'razorpay_onboarding_account_id'
 
@@ -48,7 +51,7 @@ export default function SellerOnboardPage() {
 
   return (
     <div className="container max-w-xl py-10">
-      <div className="card p-8">
+      <Reveal className="card p-8">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
             <CreditCard className="h-6 w-6" />
@@ -83,11 +86,21 @@ export default function SellerOnboardPage() {
           />
         </ol>
 
-        {error && (
-          <div className="mt-5 rounded-lg border border-[#e4b3a6] bg-[#f7e6e0] px-4 py-3 text-sm font-medium text-[#8f3322]">
-            {error}
-          </div>
-        )}
+        <AnimatePresence>
+          {error && (
+            <m.div
+              initial={{ opacity: 0, height: 0, y: -4 }}
+              animate={{ opacity: 1, height: 'auto', y: 0 }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.25, ease: EASE.warm }}
+              className="overflow-hidden"
+            >
+              <div className="mt-5 rounded-lg border border-[#e4b3a6] bg-[#f7e6e0] px-4 py-3 text-sm font-medium text-[#8f3322]">
+                {error}
+              </div>
+            </m.div>
+          )}
+        </AnimatePresence>
 
         <div className="mt-6">
           {step === 1 ? (
@@ -125,24 +138,49 @@ export default function SellerOnboardPage() {
             </div>
           )}
         </div>
-      </div>
+      </Reveal>
     </div>
   )
 }
 
 function Step({ n, active, done, title, body }) {
+  const reduced = useReducedMotion()
   return (
     <li className="flex gap-3">
-      <div
-        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
-          done
-            ? 'bg-primary text-primary-foreground'
-            : active
-              ? 'bg-light_bronze-700 text-light_bronze-100'
-              : 'bg-muted text-muted-foreground'
-        }`}
-      >
-        {done ? <CheckCircle2 className="h-4 w-4" /> : n}
+      <div className="relative">
+        {active && !reduced && (
+          <m.span
+            className="absolute inset-0 rounded-full bg-light_bronze-700"
+            animate={{ scale: [1, 1.45], opacity: [0.5, 0] }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' }}
+          />
+        )}
+        <div
+          className={`relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+            done
+              ? 'bg-primary text-primary-foreground'
+              : active
+                ? 'bg-light_bronze-700 text-light_bronze-100'
+                : 'bg-muted text-muted-foreground'
+          }`}
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            {done ? (
+              <m.span
+                key="done"
+                initial={reduced ? { opacity: 0 } : { scale: 0, rotate: -30 }}
+                animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                transition={SPRING}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+              </m.span>
+            ) : (
+              <m.span key="num" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                {n}
+              </m.span>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
       <div className={active || done ? '' : 'opacity-60'}>
         <p className="font-medium">{title}</p>

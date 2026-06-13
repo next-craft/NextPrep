@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Store, MessageCircle, Receipt, CreditCard } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Reveal } from '@/components/shared/motion'
 import { useMe } from '@/lib/queries'
 import SellingTab from '@/components/dashboard/SellingTab'
 import BuyingTab from '@/components/dashboard/BuyingTab'
@@ -25,15 +26,17 @@ export default function DashboardPage() {
       <h1 className="font-display text-2xl font-semibold sm:text-3xl">Dashboard</h1>
 
       {me && !me.razorpay_account_id && (
-        <Link
-          href="/sell/onboard"
-          className="mt-4 flex items-center gap-3 rounded-lg border border-[#ecd6a0] bg-[#fbf1d6] p-4 text-sm text-[#8a5e12] transition-colors hover:bg-[#f8ead0]"
-        >
-          <CreditCard className="h-5 w-5 shrink-0" />
-          <span>
-            <strong>Complete payment setup to start selling.</strong> Connect your payout account →
-          </span>
-        </Link>
+        <Reveal y={-10} className="mt-4">
+          <Link
+            href="/sell/onboard"
+            className="flex items-center gap-3 rounded-lg border border-[#ecd6a0] bg-[#fbf1d6] p-4 text-sm text-[#8a5e12] transition-colors hover:bg-[#f8ead0]"
+          >
+            <CreditCard className="h-5 w-5 shrink-0" />
+            <span>
+              <strong>Complete payment setup to start selling.</strong> Connect your payout account →
+            </span>
+          </Link>
+        </Reveal>
       )}
 
       <Tabs value={tab} onValueChange={setTab} className="mt-6">

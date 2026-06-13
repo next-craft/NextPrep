@@ -32,7 +32,7 @@ TabsTrigger.displayName = 'TabsTrigger'
 const TabsContent = React.forwardRef(({ className, ...props }, ref) => (
   <TabsPrimitive.Content
     ref={ref}
-    className={cn('mt-6 animate-fade-in focus-visible:outline-none', className)}
+    className={cn('mt-6 animate-fade-in-up focus-visible:outline-none', className)}
     {...props}
   />
 ))

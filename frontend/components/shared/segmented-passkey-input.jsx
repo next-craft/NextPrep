@@ -1,10 +1,14 @@
 'use client'
+import { useEffect, useRef } from 'react'
+import { useAnimationControls } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import { m, useReducedMotion } from '@/components/shared/motion'
 
 /**
  * 8-digit numeric passkey entry. Single controlled input styled as a large
  * monospace field (mobile numeric keyboard, accessible, robust). Sanitises to
- * digits and caps at 8.
+ * digits and caps at 8. Each newly typed digit gives the field a subtle scale
+ * pulse — emphasis without ever stealing focus.
  */
 export default function SegmentedPasskeyInput({
   value,
@@ -14,13 +18,25 @@ export default function SegmentedPasskeyInput({
   id = 'passkey',
   className,
 }) {
+  const reduced = useReducedMotion()
+  const controls = useAnimationControls()
+  const prevLen = useRef(value.length)
+
+  useEffect(() => {
+    if (!reduced && value.length > prevLen.current) {
+      controls.start({ scale: [1, 1.015, 1], transition: { duration: 0.2 } })
+    }
+    prevLen.current = value.length
+  }, [value, reduced, controls])
+
   const handle = (e) => {
     const digits = e.target.value.replace(/\D/g, '').slice(0, 8)
     onChange(digits)
   }
 
   return (
-    <input
+    <m.input
+      animate={controls}
       id={id}
       name={id}
       value={value}

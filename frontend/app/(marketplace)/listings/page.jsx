@@ -4,6 +4,8 @@ import { FILTER_KEYS } from '@/constants/filters'
 import MobileFilters from '@/components/listings/MobileFilters'
 import CreateListingButton from '@/components/listings/CreateListingButton'
 import { EmptyState, ErrorState } from '@/components/shared/states'
+import ResultCount from '@/components/listings/ResultCount'
+import { Reveal } from '@/components/shared/motion'
 import { Compass, SearchX } from 'lucide-react'
 
 export const revalidate = 0 // always fresh — ISR not needed here
@@ -35,7 +37,7 @@ export default async function ListingsPage({ searchParams }) {
 
   return (
     <div className="container py-6 lg:py-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <Reveal className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-semibold sm:text-3xl">Browse study material</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -45,15 +47,13 @@ export default async function ListingsPage({ searchParams }) {
         <div className="hidden sm:block">
           <CreateListingButton />
         </div>
-      </div>
+      </Reveal>
 
       {/* mobile toolbar */}
       <div className="mt-6 flex items-center justify-between gap-3 lg:hidden">
         <MobileFilters current={sp} />
         {!failed && (
-          <span className="text-sm text-muted-foreground">
-            {listings.length} {listings.length === 1 ? 'result' : 'results'}
-          </span>
+          <ResultCount count={listings.length} className="text-sm text-muted-foreground" />
         )}
       </div>
 
@@ -96,9 +96,10 @@ export default async function ListingsPage({ searchParams }) {
             )
           ) : (
             <>
-              <p className="mb-4 hidden text-sm text-muted-foreground lg:block">
-                {listings.length} {listings.length === 1 ? 'result' : 'results'}
-              </p>
+              <ResultCount
+                count={listings.length}
+                className="mb-4 hidden text-sm text-muted-foreground lg:block"
+              />
               <ListingGrid listings={listings} />
             </>
           )}

@@ -1,6 +1,7 @@
 import './globals.css'
 import { Fraunces, Hanken_Grotesk, JetBrains_Mono } from 'next/font/google'
 import QueryProvider from '@/lib/query-provider'
+import { MotionProvider } from '@/components/shared/motion'
 import Navbar from '@/components/shared/navbar'
 import Footer from '@/components/shared/footer'
 import { Toaster } from '@/components/ui/sonner'
@@ -40,10 +41,12 @@ export default function RootLayout({ children }) {
     >
       <body className="flex min-h-screen flex-col">
         <QueryProvider>
-          <Navbar />
-          <main className="flex-1">{children}</main>
-          <Footer />
-          <Toaster />
+          <MotionProvider>
+            <Navbar />
+            <main className="flex-1">{children}</main>
+            <Footer />
+            <Toaster />
+          </MotionProvider>
         </QueryProvider>
       </body>
     </html>

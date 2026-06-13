@@ -1,6 +1,9 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { AnimatePresence } from 'framer-motion'
 import { ImagePlus, X, ChevronLeft, ChevronRight, Link2 } from 'lucide-react'
+import { m } from '@/components/shared/motion'
+import { SPRING } from '@/lib/motion'
 
 // Direct browser→Cloudinary upload (never through FastAPI). Env-gated: when the
 // cloud name + unsigned preset aren't set, fall back to pasting image URLs so the
@@ -83,46 +86,63 @@ export default function ImageUploader({ value = [], onChange, max = 5 }) {
     <div className="space-y-3">
       {value.length > 0 && (
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
-          {value.map((url, i) => (
-            <div
-              key={url}
-              className="group relative aspect-square overflow-hidden rounded-md border border-border bg-papaya_whip-700"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt="" className="h-full w-full object-cover" />
-              {i === 0 && (
-                <span className="badge absolute left-1 top-1 bg-card/90 px-1.5 text-[10px]">Cover</span>
-              )}
-              <button
-                type="button"
-                onClick={() => removeAt(i)}
-                className="absolute right-1 top-1 rounded-full bg-light_bronze-100/70 p-1 text-cornsilk opacity-0 transition-opacity group-hover:opacity-100"
-                aria-label="Remove image"
+          <AnimatePresence initial={false} mode="popLayout">
+            {value.map((url, i) => (
+              <m.div
+                key={url}
+                layout
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={SPRING}
+                className="group relative aspect-square overflow-hidden rounded-md border border-border bg-papaya_whip-700"
               >
-                <X className="h-3.5 w-3.5" />
-              </button>
-              <div className="absolute inset-x-1 bottom-1 flex justify-between opacity-0 transition-opacity group-hover:opacity-100">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="" className="h-full w-full object-cover" />
+                <AnimatePresence>
+                  {i === 0 && (
+                    <m.span
+                      initial={{ opacity: 0, scale: 0.7 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.7 }}
+                      transition={SPRING}
+                      className="badge absolute left-1 top-1 bg-card/90 px-1.5 text-[10px]"
+                    >
+                      Cover
+                    </m.span>
+                  )}
+                </AnimatePresence>
                 <button
                   type="button"
-                  onClick={() => move(i, -1)}
-                  disabled={i === 0}
-                  className="rounded bg-light_bronze-100/70 p-0.5 text-cornsilk disabled:opacity-30"
-                  aria-label="Move left"
+                  onClick={() => removeAt(i)}
+                  className="absolute right-1 top-1 rounded-full bg-light_bronze-100/70 p-1 text-cornsilk opacity-0 transition-opacity group-hover:opacity-100"
+                  aria-label="Remove image"
                 >
-                  <ChevronLeft className="h-3.5 w-3.5" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => move(i, 1)}
-                  disabled={i === value.length - 1}
-                  className="rounded bg-light_bronze-100/70 p-0.5 text-cornsilk disabled:opacity-30"
-                  aria-label="Move right"
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
-          ))}
+                <div className="absolute inset-x-1 bottom-1 flex justify-between opacity-0 transition-opacity group-hover:opacity-100">
+                  <button
+                    type="button"
+                    onClick={() => move(i, -1)}
+                    disabled={i === 0}
+                    className="rounded bg-light_bronze-100/70 p-0.5 text-cornsilk disabled:opacity-30"
+                    aria-label="Move left"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => move(i, 1)}
+                    disabled={i === value.length - 1}
+                    className="rounded bg-light_bronze-100/70 p-0.5 text-cornsilk disabled:opacity-30"
+                    aria-label="Move right"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </m.div>
+            ))}
+          </AnimatePresence>
         </div>
       )}
 

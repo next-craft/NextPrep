@@ -10,6 +10,8 @@ import {
 } from '@/components/ui/sheet'
 import ListingFilters from './ListingFilters'
 import { FILTER_KEYS } from '@/constants/filters'
+import { m } from '@/components/shared/motion'
+import { SPRING_SNAPPY } from '@/lib/motion'
 
 export default function MobileFilters({ current = {} }) {
   const [open, setOpen] = useState(false)
@@ -20,9 +22,15 @@ export default function MobileFilters({ current = {} }) {
       <SheetTrigger className="btn-secondary h-10 px-4">
         <SlidersHorizontal className="h-4 w-4" /> Filters
         {activeCount > 0 && (
-          <span className="ml-1 rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+          <m.span
+            key={activeCount}
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={SPRING_SNAPPY}
+            className="ml-1 rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground"
+          >
             {activeCount}
-          </span>
+          </m.span>
         )}
       </SheetTrigger>
       <SheetContent side="left">

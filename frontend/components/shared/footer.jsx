@@ -17,19 +17,19 @@ export default function Footer() {
           </div>
 
           <nav className="grid grid-cols-2 gap-x-12 gap-y-2 text-sm">
-            <Link href="/listings" className="text-muted-foreground transition-colors hover:text-foreground">
+            <Link href="/listings" className="link-underline text-muted-foreground hover:text-foreground">
               Browse listings
             </Link>
-            <Link href="/listings/new" className="text-muted-foreground transition-colors hover:text-foreground">
+            <Link href="/listings/new" className="link-underline text-muted-foreground hover:text-foreground">
               Sell material
             </Link>
-            <Link href="/listings?listing_type=BOOK" className="text-muted-foreground transition-colors hover:text-foreground">
+            <Link href="/listings?listing_type=BOOK" className="link-underline text-muted-foreground hover:text-foreground">
               Books
             </Link>
-            <Link href="/listings?listing_type=NOTES" className="text-muted-foreground transition-colors hover:text-foreground">
+            <Link href="/listings?listing_type=NOTES" className="link-underline text-muted-foreground hover:text-foreground">
               Notes
             </Link>
-            <Link href="/contact" className="text-muted-foreground transition-colors hover:text-foreground">
+            <Link href="/contact" className="link-underline text-muted-foreground hover:text-foreground">
               Contact us
             </Link>
           </nav>

@@ -2,11 +2,14 @@
 import { use, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { AnimatePresence } from 'framer-motion'
 import { ArrowLeft, BookOpen, Send, Loader2 } from 'lucide-react'
 import api from '@/lib/api'
 import { useMe } from '@/lib/queries'
 import { cn, formatPrice, formatRelativeTime, listingStatus } from '@/lib/utils'
 import BuyNowButton from '@/components/listings/BuyNowButton'
+import { m, useReducedMotion } from '@/components/shared/motion'
+import { EASE, SPRING } from '@/lib/motion'
 
 const RATE_LIMIT_COPY = "You've sent too many messages. Please wait before sending more."
 
@@ -14,6 +17,7 @@ export default function ChatPage({ params }) {
   const { id: conversationId } = use(params)
   const queryClient = useQueryClient()
   const { data: me } = useMe()
+  const reduced = useReducedMotion()
   const [body, setBody] = useState('')
   const bottomRef = useRef(null)
 
@@ -78,7 +82,12 @@ export default function ChatPage({ params }) {
     <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-2xl flex-col">
       {/* Pinned listing summary */}
       <div className="sticky top-16 z-10 border-b border-border bg-cornsilk/90 backdrop-blur">
-        <div className="flex items-center gap-3 px-4 py-3">
+        <m.div
+          initial={reduced ? { opacity: 0 } : { opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: EASE.warm }}
+          className="flex items-center gap-3 px-4 py-3"
+        >
           <Link href="/dashboard?tab=buying" className="btn-ghost h-9 w-9 px-0" aria-label="Back">
             <ArrowLeft className="h-5 w-5" />
           </Link>
@@ -112,7 +121,7 @@ export default function ChatPage({ params }) {
               <BuyNowButton listingId={listingId} className="h-10 px-4" />
             </div>
           )}
-        </div>
+        </m.div>
       </div>
 
       {/* Thread */}
@@ -123,30 +132,66 @@ export default function ChatPage({ params }) {
             passkey here.
           </p>
         )}
-        {messages.map((m) => (
-          <div key={m.id} className={cn('flex flex-col', m.is_mine ? 'items-end' : 'items-start')}>
-            <div
-              className={cn(
-                'max-w-[80%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm leading-relaxed',
-                m.is_mine
-                  ? 'rounded-br-sm bg-primary text-primary-foreground'
-                  : 'rounded-bl-sm border border-border bg-card text-foreground'
-              )}
+        {/* initial={false}: existing history appears instantly; only newly
+            arrived/sent messages animate in (keeps 4s-poll additions smooth). */}
+        <AnimatePresence initial={false}>
+          {messages.map((msg) => (
+            <m.div
+              key={msg.id}
+              layout
+              initial={reduced ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.96, x: msg.is_mine ? 16 : -16 }}
+              animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
+              transition={SPRING}
+              className={cn('flex flex-col', msg.is_mine ? 'items-end' : 'items-start')}
             >
-              {m.body}
-            </div>
-            <span className="mt-0.5 px-1 text-[11px] text-muted-foreground">
-              {formatRelativeTime(m.created_at)}
-              {m.is_mine && (m.is_read ? ' · Read' : ' · Sent')}
-            </span>
-          </div>
-        ))}
+              <div
+                className={cn(
+                  'max-w-[80%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm leading-relaxed',
+                  msg.is_mine
+                    ? 'rounded-br-sm bg-primary text-primary-foreground'
+                    : 'rounded-bl-sm border border-border bg-card text-foreground'
+                )}
+              >
+                {msg.body}
+              </div>
+              <span className="mt-0.5 px-1 text-[11px] text-muted-foreground">
+                {formatRelativeTime(msg.created_at)}
+                {msg.is_mine && (
+                  <AnimatePresence mode="wait" initial={false}>
+                    <m.span
+                      key={msg.is_read ? 'read' : 'sent'}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {msg.is_read ? ' · Read' : ' · Sent'}
+                    </m.span>
+                  </AnimatePresence>
+                )}
+              </span>
+            </m.div>
+          ))}
+        </AnimatePresence>
         <div ref={bottomRef} />
       </div>
 
       {/* Composer */}
       <div className="sticky bottom-0 border-t border-border bg-cornsilk/90 px-4 py-3 backdrop-blur">
-        {sendError && <p className="mb-2 text-xs font-medium text-destructive">{sendError}</p>}
+        <AnimatePresence>
+          {sendError && (
+            <m.p
+              key={sendError}
+              initial={{ opacity: 0, height: 0 }}
+              animate={reduced ? { opacity: 1, height: 'auto' } : { opacity: 1, height: 'auto', x: [0, -5, 5, -4, 4, 0] }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.4, ease: EASE.warm }}
+              className="mb-2 overflow-hidden text-xs font-medium text-destructive"
+            >
+              {sendError}
+            </m.p>
+          )}
+        </AnimatePresence>
         <div className="flex items-end gap-2">
           <textarea
             className="textarea max-h-32 min-h-[2.75rem] flex-1 resize-none py-2.5"
@@ -162,15 +207,17 @@ export default function ChatPage({ params }) {
               }
             }}
           />
-          <button
+          <m.button
             type="button"
             onClick={() => send.mutate()}
             disabled={!body.trim() || send.isPending}
+            whileTap={{ scale: 0.9 }}
+            transition={SPRING}
             className="btn-primary h-11 w-11 shrink-0 px-0"
             aria-label="Send message"
           >
             {send.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-          </button>
+          </m.button>
         </div>
         {body.length > 1800 && (
           <p className="mt-1 text-right text-[11px] text-muted-foreground">{body.length}/2000</p>

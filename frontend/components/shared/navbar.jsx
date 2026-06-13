@@ -13,6 +13,9 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMe, useEnrichedConversations } from '@/lib/queries'
+import { cn } from '@/lib/utils'
+import { m, useReducedMotion } from '@/components/shared/motion'
+import { DURATION, EASE } from '@/lib/motion'
 import Avatar from '@/components/shared/avatar'
 import {
   DropdownMenu,
@@ -26,8 +29,17 @@ import {
 export default function Navbar() {
   const supabase = createClient()
   const router = useRouter()
+  const reduced = useReducedMotion()
   const [authed, setAuthed] = useState(false)
   const [ready, setReady] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -61,7 +73,17 @@ export default function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-cornsilk/85 backdrop-blur supports-[backdrop-filter]:bg-cornsilk/70">
+    <m.header
+      initial={reduced ? { opacity: 0 } : { y: -16, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: DURATION.base, ease: EASE.warm }}
+      className={cn(
+        'sticky top-0 z-40 border-b backdrop-blur transition-[background-color,box-shadow,border-color] duration-300',
+        scrolled
+          ? 'border-border bg-cornsilk/95 shadow-warm supports-[backdrop-filter]:bg-cornsilk/80'
+          : 'border-transparent bg-cornsilk/85 supports-[backdrop-filter]:bg-cornsilk/70'
+      )}
+    >
       <div className="container flex h-16 items-center gap-3">
         <Link href="/" className="font-display text-xl font-semibold tracking-tight">
           Next<span className="text-primary">Prep</span>
@@ -89,7 +111,10 @@ export default function Navbar() {
               <Link href="/dashboard?tab=buying" className="btn-ghost relative px-3" aria-label="Conversations">
                 <MessageCircle className="h-5 w-5" />
                 {unread > 0 && (
-                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-cornsilk" />
+                  <span className="absolute right-1.5 top-1.5 flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-75" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-cornsilk" />
+                  </span>
                 )}
               </Link>
 
@@ -141,6 +166,6 @@ export default function Navbar() {
           )}
         </div>
       </div>
-    </header>
+    </m.header>
   )
 }

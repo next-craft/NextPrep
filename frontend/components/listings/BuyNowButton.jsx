@@ -5,6 +5,8 @@ import { ShoppingBag, Loader2, ArrowLeft } from 'lucide-react'
 import api from '@/lib/api'
 import SegmentedPasskeyInput from '@/components/shared/segmented-passkey-input'
 import { cn } from '@/lib/utils'
+import { m, useReducedMotion } from '@/components/shared/motion'
+import { SPRING, EASE } from '@/lib/motion'
 
 /**
  * "Buy Now" is a pure UI event (no backend call) that reveals the passkey
@@ -14,6 +16,7 @@ import { cn } from '@/lib/utils'
  * "This listing has already been sold.").
  */
 export default function BuyNowButton({ listingId, className }) {
+  const reduced = useReducedMotion()
   const [open, setOpen] = useState(false)
   const [passkey, setPasskey] = useState('')
   const [error, setError] = useState(null)
@@ -38,7 +41,12 @@ export default function BuyNowButton({ listingId, className }) {
   }
 
   return (
-    <div className="animate-fade-in space-y-3 rounded-lg border border-border bg-card p-4 shadow-warm">
+    <m.div
+      initial={reduced ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={SPRING}
+      className="space-y-3 rounded-lg border border-border bg-card p-4 shadow-warm"
+    >
       <div>
         <p className="text-sm font-medium text-foreground">Enter the 8-digit passkey</p>
         <p className="mt-0.5 text-xs text-muted-foreground">
@@ -54,7 +62,17 @@ export default function BuyNowButton({ listingId, className }) {
         disabled={isPending}
         autoFocus
       />
-      {error && <p className="text-sm font-medium text-destructive">{error}</p>}
+      {error && (
+        <m.p
+          key={error}
+          initial={{ opacity: 0 }}
+          animate={reduced ? { opacity: 1 } : { opacity: 1, x: [0, -5, 5, -4, 4, 0] }}
+          transition={{ duration: 0.4, ease: EASE.warm }}
+          className="text-sm font-medium text-destructive"
+        >
+          {error}
+        </m.p>
+      )}
       <div className="flex gap-2">
         <button
           type="button"
@@ -84,6 +102,6 @@ export default function BuyNowButton({ listingId, className }) {
           )}
         </button>
       </div>
-    </div>
+    </m.div>
   )
 }

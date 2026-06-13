@@ -3,6 +3,7 @@ import { MapPin, BadgeCheck, BookOpen, Star } from 'lucide-react'
 import Avatar from '@/components/shared/avatar'
 import ListingGrid from '@/components/listings/ListingGrid'
 import { EmptyState } from '@/components/shared/states'
+import { Reveal, Stagger, StaggerItem } from '@/components/shared/motion'
 import { formatDate } from '@/lib/utils'
 
 export const revalidate = 0
@@ -45,9 +46,11 @@ export default async function UserProfilePage({ params }) {
 
   return (
     <div className="container py-8">
-      <header className="flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
-        <Avatar src={user.avatar_url} name={user.full_name} size={84} />
-        <div>
+      <Stagger as="header" gap={0.1} className="flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
+        <StaggerItem>
+          <Avatar src={user.avatar_url} name={user.full_name} size={84} />
+        </StaggerItem>
+        <StaggerItem>
           <h1 className="flex items-center justify-center gap-2 font-display text-2xl font-semibold sm:justify-start sm:text-3xl">
             <span>{user.full_name}</span>
             {user.is_verified && <BadgeCheck className="h-6 w-6 text-primary" />}
@@ -68,11 +71,13 @@ export default async function UserProfilePage({ params }) {
             )}
             {user.created_at && <span>Joined {formatDate(user.created_at)}</span>}
           </div>
-        </div>
-      </header>
+        </StaggerItem>
+      </Stagger>
 
       <section className="mt-10">
-        <h2 className="mb-4 font-display text-lg font-semibold">Active listings</h2>
+        <Reveal inView as="h2" className="mb-4 font-display text-lg font-semibold">
+          Active listings
+        </Reveal>
         {listings.length ? (
           <ListingGrid listings={listings} />
         ) : (
