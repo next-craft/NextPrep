@@ -1,19 +1,26 @@
 'use client'
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { Loader2, CreditCard } from 'lucide-react'
 import api from '@/lib/api'
+import { useMe } from '@/lib/queries'
 import { EXAM_CATEGORIES } from '@/constants/examCategories'
 import { LISTING_TYPES } from '@/constants/listingTypes'
 import { CONDITIONS } from '@/constants/conditions'
+import { CITIES } from '@/constants/cities'
+import { SUBJECTS } from '@/constants/subjects'
+import ImageUploader from '@/components/listings/ImageUploader'
 import PasskeyReveal from '@/components/listings/PasskeyReveal'
 
 export default function CreateListingForm() {
-  const router = useRouter()
+  const { data: me, isLoading } = useMe()
   const [passkey, setPasskey] = useState(null)
   const [listingId, setListingId] = useState(null)
+  const [images, setImages] = useState([])
 
   const { mutate, isPending, error } = useMutation({
+    // API: POST /listings — returns { listing, passkey } (passkey shown once)
     mutationFn: (data) => api.post('/listings', data),
     onSuccess: ({ data }) => {
       setPasskey(data.passkey)
@@ -21,10 +28,46 @@ export default function CreateListingForm() {
     },
   })
 
-  if (passkey) return <PasskeyReveal passkey={passkey} listingId={listingId} />
+  if (passkey) {
+    return (
+      <div className="container py-10">
+        <PasskeyReveal passkey={passkey} listingId={listingId} />
+      </div>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-24">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  // Gate listing creation behind completed Razorpay onboarding (POST /listings 403s otherwise).
+  if (!me?.razorpay_account_id) {
+    return (
+      <div className="container py-16">
+        <div className="card mx-auto max-w-md p-8 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
+            <CreditCard className="h-6 w-6" />
+          </div>
+          <h1 className="font-display text-xl font-semibold">Set up payouts before you list</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Complete a one-time KYC with Razorpay so buyers can pay you directly. The platform never
+            holds your money.
+          </p>
+          <Link href="/sell/onboard" className="btn-primary mt-6 w-full">
+            Set up payouts
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   function handleSubmit(e) {
     e.preventDefault()
+    if (images.length === 0) return // at least one image required
     const fd = new FormData(e.target)
     const asking_price = parseInt(fd.get('asking_price'), 10)
     const original_price = fd.get('original_price') ? parseInt(fd.get('original_price'), 10) : undefined
@@ -38,80 +81,135 @@ export default function CreateListingForm() {
       asking_price,
       original_price,
       city: fd.get('city'),
+      images,
     })
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-lg mx-auto p-6 space-y-4">
-      <h1 className="text-2xl font-bold">Create Listing</h1>
+    <div className="container py-8">
+      <div className="mx-auto max-w-2xl">
+        <h1 className="font-display text-2xl font-semibold sm:text-3xl">Create a listing</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          List physical study material you own. No pirated scans, photocopied books, or unauthorized
+          reproductions.
+        </p>
 
-      {error && (
-        <div className="text-red-600 text-sm">
-          {error.response?.data?.detail || 'Something went wrong.'}
-        </div>
-      )}
+        {error && (
+          <div className="mt-4 rounded-lg border border-[#e4b3a6] bg-[#f7e6e0] px-4 py-3 text-sm font-medium text-[#8f3322]">
+            {error.response?.data?.detail || 'Something went wrong. Please check the form and try again.'}
+          </div>
+        )}
 
-      <div>
-        <label className="label">Title *</label>
-        <input name="title" required maxLength={120} className="input" />
+        <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+          <div>
+            <label htmlFor="title" className="label">Title *</label>
+            <input
+              id="title"
+              name="title"
+              required
+              maxLength={120}
+              className="input"
+              placeholder="e.g. HC Verma Concepts of Physics Vol 1 & 2"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="description" className="label">Description</label>
+            <textarea
+              id="description"
+              name="description"
+              maxLength={1000}
+              rows={4}
+              className="textarea"
+              placeholder="Edition, what's included, any markings or wear…"
+            />
+          </div>
+
+          <div>
+            <label className="label">Images *</label>
+            <ImageUploader value={images} onChange={setImages} max={5} />
+            <p className="mt-1 text-xs text-muted-foreground">At least one image is required.</p>
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div>
+              <label htmlFor="exam_category" className="label">Exam category *</label>
+              <select id="exam_category" name="exam_category" required defaultValue="" className="input">
+                <option value="" disabled>Select category…</option>
+                {EXAM_CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="subject" className="label">Subject</label>
+              <input
+                id="subject"
+                name="subject"
+                list="subject-options-form"
+                className="input"
+                placeholder="e.g. Physics"
+              />
+              <datalist id="subject-options-form">
+                {SUBJECTS.map((s) => (
+                  <option key={s} value={s} />
+                ))}
+              </datalist>
+            </div>
+
+            <div>
+              <label htmlFor="listing_type" className="label">Material type *</label>
+              <select id="listing_type" name="listing_type" required defaultValue="" className="input">
+                <option value="" disabled>Select type…</option>
+                {LISTING_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="condition" className="label">Condition *</label>
+              <select id="condition" name="condition" required defaultValue="" className="input">
+                <option value="" disabled>Select condition…</option>
+                {CONDITIONS.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="asking_price" className="label">Asking price (₹) *</label>
+              <input id="asking_price" name="asking_price" type="number" min={1} required className="input" placeholder="450" />
+            </div>
+
+            <div>
+              <label htmlFor="original_price" className="label">Original price (₹)</label>
+              <input id="original_price" name="original_price" type="number" min={1} className="input" placeholder="750" />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label htmlFor="city" className="label">City *</label>
+              <select id="city" name="city" required defaultValue="" className="input">
+                <option value="" disabled>Select city…</option>
+                {CITIES.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" disabled={isPending || images.length === 0} className="btn-primary w-full">
+            {isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Creating…
+              </>
+            ) : (
+              'Create listing'
+            )}
+          </button>
+        </form>
       </div>
-
-      <div>
-        <label className="label">Description</label>
-        <textarea name="description" maxLength={1000} className="input" rows={4} />
-      </div>
-
-      <div>
-        <label className="label">Exam Category *</label>
-        <select name="exam_category" required className="input">
-          {EXAM_CATEGORIES.map(c => (
-            <option key={c.value} value={c.value}>{c.label}</option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className="label">Subject</label>
-        <input name="subject" className="input" placeholder="e.g. Physics, Organic Chemistry" />
-      </div>
-
-      <div>
-        <label className="label">Listing Type *</label>
-        <select name="listing_type" required className="input">
-          {LISTING_TYPES.map(t => (
-            <option key={t.value} value={t.value}>{t.label}</option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className="label">Condition *</label>
-        <select name="condition" required className="input">
-          {CONDITIONS.map(c => (
-            <option key={c.value} value={c.value}>{c.label}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="label">Asking Price (₹) *</label>
-          <input name="asking_price" type="number" min={1} required className="input" />
-        </div>
-        <div>
-          <label className="label">Original Price (₹)</label>
-          <input name="original_price" type="number" min={1} className="input" />
-        </div>
-      </div>
-
-      <div>
-        <label className="label">City *</label>
-        <input name="city" required className="input" placeholder="e.g. Delhi, Mumbai" />
-      </div>
-
-      <button type="submit" disabled={isPending} className="btn-primary w-full">
-        {isPending ? 'Creating…' : 'Create Listing'}
-      </button>
-    </form>
+    </div>
   )
 }

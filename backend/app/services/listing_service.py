@@ -51,6 +51,7 @@ async def get_listings(
     city: str | None = None,
     condition: str | None = None,
     listing_type: str | None = None,
+    seller_id: str | None = None,
 ) -> list[Listing]:
     stmt = select(Listing).where(
         Listing.is_available == True,
@@ -73,8 +74,21 @@ async def get_listings(
         stmt = stmt.where(Listing.condition == condition)
     if listing_type:
         stmt = stmt.where(Listing.listing_type == listing_type)
+    if seller_id:
+        stmt = stmt.where(Listing.seller_id == UUID(seller_id))
 
     stmt = stmt.order_by(Listing.created_at.desc())
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+
+async def get_my_listings(db: AsyncSession, seller_id: str) -> list[Listing]:
+    """The caller's own listings in all states (active/paused/sold), excluding soft-deleted."""
+    stmt = (
+        select(Listing)
+        .where(Listing.seller_id == UUID(seller_id), Listing.deleted_at == None)  # noqa: E711
+        .order_by(Listing.created_at.desc())
+    )
     result = await db.execute(stmt)
     return result.scalars().all()
 
