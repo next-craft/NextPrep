@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ──────────────────────────────────────────────────────────────────────
+   NextPrep — warm "paper & ink" design tokens
+   Page = cornsilk paper · ink = deep bronze · CTA = bronze · soft greens
+   ────────────────────────────────────────────────────────────────────── */
+:root {
+  --background: #fefae0;            /* cornsilk — warm paper */
+  --foreground: #32210f;            /* light_bronze-100 — ink */
+  --card: #fffdf6;                  /* warm white surface */
+  --card-foreground: #32210f;
+  --popover: #fffdf6;
+  --popover-foreground: #32210f;
+  --primary: #96622e;               /* light_bronze-300 — bronze CTA */
+  --primary-foreground: #fdf6e9;
+  --secondary: #e1e6cf;             /* tea_green-700 — soft green surface */
+  --secondary-foreground: #2d331a;
+  --muted: #f2f4df;                 /* beige-700 — muted surface */
+  --muted-foreground: #5b6635;      /* tea_green-200 — muted olive ink */
+  --accent: #e9edc9;                /* beige — accent surface */
+  --accent-foreground: #2d331a;
+  --destructive: #b3452f;           /* terracotta */
+  --destructive-foreground: #fdf6e9;
+  --border: #e7d4bf;                /* warm bronze border */
+  --input: #e7d4bf;
+  --ring: #c58341;                  /* light_bronze-400 — focus ring */
+  --radius: 0.75rem;
+
+  --status-success: #4e7d3f;
+  --status-warning: #b07d1e;
+  --status-danger: #b3452f;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* subtle paper grain — sits behind all content */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight text-foreground;
+  }
+  ::selection {
+    @apply bg-light_bronze-600 text-foreground;
+  }
+  /* keyboard focus everywhere, warm bronze */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+@layer components {
+  /* ── Buttons ───────────────────────────────────────────────────────── */
+  .btn-primary {
+    @apply inline-flex h-11 items-center justify-center gap-2 rounded-md bg-primary px-5
+           text-sm font-semibold text-primary-foreground shadow-warm transition-all
+           hover:bg-light_bronze-200 active:scale-[0.98]
+           disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply inline-flex h-11 items-center justify-center gap-2 rounded-md border border-tea_green-500
+           bg-secondary px-5 text-sm font-semibold text-secondary-foreground transition-all
+           hover:bg-tea_green-600 active:scale-[0.98]
+           disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium
+           text-foreground transition-colors hover:bg-accent hover:text-accent-foreground
+           disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-danger {
+    @apply inline-flex h-11 items-center justify-center gap-2 rounded-md bg-destructive px-5
+           text-sm font-semibold text-destructive-foreground transition-all
+           hover:opacity-90 active:scale-[0.98]
+           disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  /* ── Form controls ─────────────────────────────────────────────────── */
+  .input {
+    @apply h-11 w-full rounded-md border border-input bg-card px-3.5 text-sm text-foreground
+           shadow-sm transition-colors placeholder:text-muted-foreground
+           focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .textarea {
+    @apply min-h-[120px] w-full rounded-md border border-input bg-card px-3.5 py-2.5 text-sm
+           leading-relaxed text-foreground shadow-sm transition-colors
+           placeholder:text-muted-foreground focus-visible:border-ring
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-foreground;
+  }
+
+  /* ── Surfaces & chips ──────────────────────────────────────────────── */
+  .card {
+    @apply rounded-lg border border-border bg-card shadow-warm;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full border border-border bg-card
+           px-2.5 py-0.5 text-xs font-medium text-foreground;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1
+           text-sm font-medium text-foreground transition-colors
+           hover:border-light_bronze-500 hover:bg-accent;
+  }
+  .skeleton {
+    @apply animate-pulse rounded-md bg-light_bronze-800/70;
+  }
+}
