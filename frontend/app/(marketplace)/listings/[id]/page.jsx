@@ -9,6 +9,7 @@ import Avatar from '@/components/shared/avatar'
 import ListingGallery from '@/components/listings/ListingGallery'
 import BuyNowButton from '@/components/listings/BuyNowButton'
 import MessageSellerButton from '@/components/listings/MessageSellerButton'
+import ReportListingDialog from '@/components/listings/ReportListingDialog'
 import { Reveal, Stagger, StaggerItem } from '@/components/shared/motion'
 
 export const revalidate = 0
@@ -170,6 +171,13 @@ export default async function ListingDetailPage({ params }) {
               </Link>
             ) : null}
             </StaggerItem>
+
+            {/* Report — available to any non-owner viewer, in any listing state */}
+            {!isOwner && (
+              <StaggerItem className="mt-4 flex justify-end">
+                <ReportListingDialog listingId={listing.id} isLoggedIn={!!user} />
+              </StaggerItem>
+            )}
           </Stagger>
         </div>
       </div>

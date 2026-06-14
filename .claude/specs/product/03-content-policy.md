@@ -159,11 +159,11 @@ class Report(Base):
         CheckConstraint(
             "reason IN ('PIRACY','CONTACT_INFO','SPAM','NOT_STUDY_MATERIAL',"
             "'PROHIBITED','ABUSIVE','OTHER')",
-            name="reports_reason_check",
+            name="ck_report_reason",
         ),
         CheckConstraint(
             "status IN ('open','actioned','dismissed')",
-            name="reports_status_check",
+            name="ck_report_status",
         ),
         UniqueConstraint("listing_id", "reporter_id", name="uq_report_once"),
     )

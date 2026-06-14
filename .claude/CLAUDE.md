@@ -176,6 +176,8 @@ PATCH  /listings/{id}             protected, owner only
 DELETE /listings/{id}             protected, owner only (soft delete)
 PATCH  /listings/{id}/passkey     protected, owner only — regenerate passkey hash
 
+POST   /reports                   protected — report a listing (content policy)
+
 GET    /conversations             protected
 POST   /conversations             protected
 GET    /conversations/{id}/messages   protected, polling
@@ -245,6 +247,7 @@ passkey_attempts:{listing_id}:{buyer_id}    integer, TTL 7 days
 abandoned_notified:{listing_id}             integer, TTL 6 hours
 chat_rate:{conversation_id}:{sender_id}     integer, TTL 1 hour
 chat:{conversation_id}                      cached messages, TTL 30s
+report_rate:{reporter_id}                   integer, TTL 1 hour
 ```
 
 ---
