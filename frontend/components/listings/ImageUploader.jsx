@@ -1,9 +1,20 @@
 'use client'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
-import { UploadCloud, ImagePlus, X, ChevronLeft, ChevronRight, Link2, Loader2, AlertCircle } from 'lucide-react'
+import {
+  UploadCloud,
+  ImagePlus,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Link2,
+  Loader2,
+  AlertCircle,
+  Camera,
+  Plus,
+} from 'lucide-react'
 import { m } from '@/components/shared/motion'
-import { SPRING } from '@/lib/motion'
+import { EASE, SPRING } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 
 // Direct browser→Cloudinary unsigned upload (never through FastAPI). Env-gated:
@@ -15,18 +26,85 @@ const CLOUDINARY_ENABLED = Boolean(CLOUD && PRESET)
 const UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUD}/upload`
 const MAX_BYTES = 5_000_000
 
+const TABS = [
+  { key: 'device', label: 'Device', icon: UploadCloud },
+  { key: 'camera', label: 'Camera', icon: Camera },
+  { key: 'link', label: 'Web link', icon: Link2 },
+]
+
 export default function ImageUploader({ value = [], onChange, max = 5 }) {
+  const [tab, setTab] = useState('device')
   const [urlInput, setUrlInput] = useState('')
   const [uploads, setUploads] = useState([]) // { id, preview, progress, error }
   const [dragOver, setDragOver] = useState(false)
   const [notice, setNotice] = useState(null)
+  const [camReady, setCamReady] = useState(false)
+  const [camError, setCamError] = useState(null)
   const valueRef = useRef(value)
   valueRef.current = value
   const inputRef = useRef(null)
+  const videoRef = useRef(null)
+  const canvasRef = useRef(null)
+  const streamRef = useRef(null)
   const idRef = useRef(0)
 
   // How many more can be queued (committed + in-flight).
   const remaining = max - value.length - uploads.length
+
+  // ── Live camera (getUserMedia) ──────────────────────────────────────────
+  const cameraActive = CLOUDINARY_ENABLED && tab === 'camera' && remaining > 0
+
+  useEffect(() => {
+    if (!cameraActive) return undefined
+    let cancelled = false
+    setCamError(null)
+    setCamReady(false)
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCamError('This browser can’t access the camera. Use Device upload instead.')
+      return undefined
+    }
+
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+      .then((stream) => {
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop())
+          return
+        }
+        streamRef.current = stream
+        if (videoRef.current) videoRef.current.srcObject = stream
+        setCamReady(true)
+      })
+      .catch(() => {
+        if (!cancelled) setCamError('Couldn’t access the camera — check permissions, or use Device upload.')
+      })
+
+    return () => {
+      cancelled = true
+      streamRef.current?.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+      setCamReady(false)
+    }
+  }, [cameraActive])
+
+  function capturePhoto() {
+    const v = videoRef.current
+    const c = canvasRef.current
+    if (!v || !c || !v.videoWidth) return
+    c.width = v.videoWidth
+    c.height = v.videoHeight
+    c.getContext('2d').drawImage(v, 0, 0)
+    c.toBlob(
+      (blob) => {
+        if (blob && valueRef.current.length + uploads.length < max) {
+          uploadOne(new File([blob], `camera-${idRef.current + 1}.jpg`, { type: 'image/jpeg' }))
+        }
+      },
+      'image/jpeg',
+      0.9
+    )
+  }
 
   const setUpload = (id, patch) =>
     setUploads((list) => list.map((u) => (u.id === id ? { ...u, ...patch } : u)))
@@ -230,61 +308,170 @@ export default function ImageUploader({ value = [], onChange, max = 5 }) {
 
       {remaining > 0 &&
         (CLOUDINARY_ENABLED ? (
-          <div className="space-y-1.5">
-            <div
-              onDragOver={(e) => {
-                e.preventDefault()
-                setDragOver(true)
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={onDrop}
-              onClick={() => inputRef.current?.click()}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  inputRef.current?.click()
-                }
-              }}
-              className={cn(
-                'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-6 py-10 text-center transition-colors',
-                dragOver
-                  ? 'border-primary bg-accent/70'
-                  : 'border-light_bronze-700 bg-card/50 hover:border-light_bronze-500 hover:bg-card'
-              )}
-            >
-              <m.div
-                animate={dragOver ? { y: -3, scale: 1.05 } : { y: 0, scale: 1 }}
-                transition={SPRING}
-                className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-primary"
-              >
-                <UploadCloud className="h-6 w-6" />
-              </m.div>
-              <p className="text-sm font-medium text-foreground">
-                {dragOver ? 'Drop to upload' : 'Drag & drop images here'}
-              </p>
-              <p className="text-xs text-muted-foreground">or</p>
-              <span className="btn-primary pointer-events-none h-9 px-4 text-sm">
-                <ImagePlus className="h-4 w-4" /> Browse files
-              </span>
-              <p className="text-xs text-muted-foreground">
-                JPG or PNG · up to 5 MB · {remaining} {remaining === 1 ? 'slot' : 'slots'} left
-              </p>
-              <input
-                ref={inputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  handleFiles(e.target.files)
-                  e.target.value = '' // allow re-selecting the same file
-                }}
-              />
+          <div className="overflow-hidden rounded-lg border border-border bg-card shadow-warm">
+            {/* Tabs — Device / Camera / Web link */}
+            <div className="flex border-b border-border">
+              {TABS.map((t) => {
+                const active = tab === t.key
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => setTab(t.key)}
+                    className={cn(
+                      'relative flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors',
+                      active ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <t.icon className="h-4 w-4" /> {t.label}
+                    {active && (
+                      <m.span
+                        layoutId="uploader-tab"
+                        className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-primary"
+                        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                      />
+                    )}
+                  </button>
+                )
+              })}
             </div>
+
+            <div className="p-3">
+              <AnimatePresence mode="wait" initial={false}>
+                <m.div
+                  key={tab}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.18, ease: EASE.warm }}
+                >
+                  {tab === 'device' && (
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        setDragOver(true)
+                      }}
+                      onDragLeave={() => setDragOver(false)}
+                      onDrop={onDrop}
+                      onClick={() => inputRef.current?.click()}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          inputRef.current?.click()
+                        }
+                      }}
+                      className={cn(
+                        'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-6 py-10 text-center transition-colors',
+                        dragOver
+                          ? 'border-primary bg-accent/70'
+                          : 'border-light_bronze-700 bg-card/50 hover:border-light_bronze-500 hover:bg-card'
+                      )}
+                    >
+                      <m.div
+                        animate={dragOver ? { y: -3, scale: 1.05 } : { y: 0, scale: 1 }}
+                        transition={SPRING}
+                        className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-primary"
+                      >
+                        <UploadCloud className="h-6 w-6" />
+                      </m.div>
+                      <p className="text-sm font-medium text-foreground">
+                        {dragOver ? 'Drop to upload' : 'Drag & drop images here'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">or</p>
+                      <span className="btn-primary pointer-events-none h-9 px-4 text-sm">
+                        <ImagePlus className="h-4 w-4" /> Browse files
+                      </span>
+                      <p className="text-xs text-muted-foreground">
+                        JPG or PNG · up to 5 MB · {remaining} {remaining === 1 ? 'slot' : 'slots'} left
+                      </p>
+                      <input
+                        ref={inputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          handleFiles(e.target.files)
+                          e.target.value = '' // allow re-selecting the same file
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {tab === 'camera' && (
+                    <div className="space-y-2">
+                      {camError ? (
+                        <div className="flex items-start gap-2 rounded-lg border border-[#e4b3a6] bg-[#f7e6e0] px-4 py-3 text-sm font-medium text-[#8f3322]">
+                          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                          {camError}
+                        </div>
+                      ) : (
+                        <>
+                          <div className="relative aspect-video overflow-hidden rounded-lg border border-border bg-light_bronze-100">
+                            <video
+                              ref={videoRef}
+                              autoPlay
+                              playsInline
+                              muted
+                              className="h-full w-full object-cover"
+                            />
+                            {!camReady && (
+                              <div className="absolute inset-0 flex items-center justify-center text-cornsilk">
+                                <Loader2 className="h-6 w-6 animate-spin" />
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={capturePhoto}
+                            disabled={!camReady}
+                            className="btn-primary w-full"
+                          >
+                            <Camera className="h-4 w-4" /> Capture photo
+                          </button>
+                          <p className="text-center text-xs text-muted-foreground">
+                            {remaining} {remaining === 1 ? 'slot' : 'slots'} left · captures upload automatically
+                          </p>
+                        </>
+                      )}
+                      <canvas ref={canvasRef} className="hidden" />
+                    </div>
+                  )}
+
+                  {tab === 'link' && (
+                    <div className="space-y-1.5">
+                      <div className="flex gap-2">
+                        <input
+                          value={urlInput}
+                          onChange={(e) => setUrlInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              addUrl()
+                            }
+                          }}
+                          placeholder="Paste image URL (https://…)"
+                          className="input"
+                        />
+                        <button type="button" onClick={addUrl} className="btn-primary shrink-0">
+                          <Plus className="h-4 w-4" /> Add
+                        </button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Paste a direct link to an image (JPG or PNG).
+                      </p>
+                    </div>
+                  )}
+                </m.div>
+              </AnimatePresence>
+            </div>
+
             {notice && (
-              <p className="text-xs font-medium text-destructive">{notice}</p>
+              <p className="border-t border-border px-3 py-2 text-xs font-medium text-destructive">
+                {notice}
+              </p>
             )}
           </div>
         ) : (
