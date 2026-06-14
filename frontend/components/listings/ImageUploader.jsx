@@ -1,68 +1,106 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
-import { ImagePlus, X, ChevronLeft, ChevronRight, Link2 } from 'lucide-react'
+import { UploadCloud, ImagePlus, X, ChevronLeft, ChevronRight, Link2, Loader2, AlertCircle } from 'lucide-react'
 import { m } from '@/components/shared/motion'
 import { SPRING } from '@/lib/motion'
+import { cn } from '@/lib/utils'
 
-// Direct browser→Cloudinary upload (never through FastAPI). Env-gated: when the
-// cloud name + unsigned preset aren't set, fall back to pasting image URLs so the
-// form still works end-to-end in development.
+// Direct browser→Cloudinary unsigned upload (never through FastAPI). Env-gated:
+// when the cloud name + unsigned preset aren't set, fall back to pasting image
+// URLs so the form still works end-to-end in development.
 const CLOUD = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
 const PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
 const CLOUDINARY_ENABLED = Boolean(CLOUD && PRESET)
-const WIDGET_SRC = 'https://upload-widget.cloudinary.com/global/all.js'
+const UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUD}/upload`
+const MAX_BYTES = 5_000_000
 
 export default function ImageUploader({ value = [], onChange, max = 5 }) {
-  const [scriptReady, setScriptReady] = useState(false)
   const [urlInput, setUrlInput] = useState('')
+  const [uploads, setUploads] = useState([]) // { id, preview, progress, error }
+  const [dragOver, setDragOver] = useState(false)
+  const [notice, setNotice] = useState(null)
   const valueRef = useRef(value)
   valueRef.current = value
-  const widgetRef = useRef(null)
+  const inputRef = useRef(null)
+  const idRef = useRef(0)
 
-  useEffect(() => {
-    if (!CLOUDINARY_ENABLED) return
-    if (window.cloudinary) {
-      setScriptReady(true)
-      return
+  // How many more can be queued (committed + in-flight).
+  const remaining = max - value.length - uploads.length
+
+  const setUpload = (id, patch) =>
+    setUploads((list) => list.map((u) => (u.id === id ? { ...u, ...patch } : u)))
+  const dropUpload = (id) => setUploads((list) => list.filter((u) => u.id !== id))
+
+  function uploadOne(file) {
+    const id = ++idRef.current
+    const preview = URL.createObjectURL(file)
+    setUploads((list) => [...list, { id, preview, progress: 0, error: false }])
+
+    const form = new FormData()
+    form.append('file', file)
+    form.append('upload_preset', PRESET)
+
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', UPLOAD_URL)
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) setUpload(id, { progress: e.loaded / e.total })
     }
-    const existing = document.querySelector(`script[src="${WIDGET_SRC}"]`)
-    if (existing) {
-      existing.addEventListener('load', () => setScriptReady(true))
-      return
-    }
-    const s = document.createElement('script')
-    s.src = WIDGET_SRC
-    s.async = true
-    s.onload = () => setScriptReady(true)
-    document.body.appendChild(s)
-  }, [])
-
-  const remaining = max - value.length
-
-  const openWidget = () => {
-    if (!window.cloudinary) return
-    if (!widgetRef.current) {
-      widgetRef.current = window.cloudinary.createUploadWidget(
-        {
-          cloudName: CLOUD,
-          uploadPreset: PRESET,
-          sources: ['local', 'camera', 'url'],
-          multiple: true,
-          maxFiles: max,
-          clientAllowedFormats: ['image'],
-          maxImageFileSize: 5_000_000,
-        },
-        (error, result) => {
-          if (!error && result?.event === 'success') {
-            const url = result.info.secure_url
-            const cur = valueRef.current
-            if (cur.length < max && !cur.includes(url)) onChange([...cur, url])
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const { secure_url } = JSON.parse(xhr.responseText)
+          const cur = valueRef.current
+          if (secure_url && cur.length < max && !cur.includes(secure_url)) {
+            onChange([...cur, secure_url])
           }
+          URL.revokeObjectURL(preview)
+          dropUpload(id)
+          return
+        } catch {
+          /* fall through to error */
         }
-      )
+      }
+      setUpload(id, { error: true })
     }
-    widgetRef.current.open()
+    xhr.onerror = () => setUpload(id, { error: true })
+    xhr.send(form)
+  }
+
+  function handleFiles(fileList) {
+    setNotice(null)
+    const files = Array.from(fileList || [])
+    let slots = max - valueRef.current.length - uploads.length
+    let rejected = false
+    for (const file of files) {
+      if (slots <= 0) {
+        setNotice(`You can add up to ${max} images.`)
+        break
+      }
+      if (!file.type.startsWith('image/')) {
+        rejected = true
+        continue
+      }
+      if (file.size > MAX_BYTES) {
+        rejected = true
+        continue
+      }
+      uploadOne(file)
+      slots--
+    }
+    if (rejected) setNotice('Some files were skipped — images only, up to 5 MB each.')
+  }
+
+  const onDrop = (e) => {
+    e.preventDefault()
+    setDragOver(false)
+    if (remaining > 0) handleFiles(e.dataTransfer.files)
+  }
+
+  const retry = (u) => {
+    // Re-pick is simplest: drop the failed tile; user re-adds. Free the preview.
+    URL.revokeObjectURL(u.preview)
+    dropUpload(u.id)
   }
 
   const addUrl = () => {
@@ -82,9 +120,11 @@ export default function ImageUploader({ value = [], onChange, max = 5 }) {
     onChange(next)
   }
 
+  const hasTiles = value.length > 0 || uploads.length > 0
+
   return (
     <div className="space-y-3">
-      {value.length > 0 && (
+      {hasTiles && (
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
           <AnimatePresence initial={false} mode="popLayout">
             {value.map((url, i) => (
@@ -142,21 +182,111 @@ export default function ImageUploader({ value = [], onChange, max = 5 }) {
                 </div>
               </m.div>
             ))}
+
+            {/* In-flight uploads — local preview + bronze progress bar */}
+            {uploads.map((u) => (
+              <m.div
+                key={`up-${u.id}`}
+                layout
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={SPRING}
+                className="relative aspect-square overflow-hidden rounded-md border border-border bg-papaya_whip-700"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={u.preview} alt="" className="h-full w-full object-cover opacity-50" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-light_bronze-100/25 text-cornsilk">
+                  {u.error ? (
+                    <>
+                      <AlertCircle className="h-5 w-5" />
+                      <button
+                        type="button"
+                        onClick={() => retry(u)}
+                        className="rounded bg-cornsilk/90 px-2 py-0.5 text-[10px] font-semibold text-destructive"
+                      >
+                        Dismiss
+                      </button>
+                    </>
+                  ) : (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  )}
+                </div>
+                {!u.error && (
+                  <div className="absolute inset-x-0 bottom-0 h-1 bg-light_bronze-100/30">
+                    <m.div
+                      className="h-full bg-primary"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.round(u.progress * 100)}%` }}
+                      transition={{ ease: 'easeOut', duration: 0.2 }}
+                    />
+                  </div>
+                )}
+              </m.div>
+            ))}
           </AnimatePresence>
         </div>
       )}
 
       {remaining > 0 &&
         (CLOUDINARY_ENABLED ? (
-          <button
-            type="button"
-            onClick={openWidget}
-            disabled={!scriptReady}
-            className="btn-secondary w-full"
-          >
-            <ImagePlus className="h-4 w-4" />
-            {scriptReady ? `Add images (${remaining} left)` : 'Loading uploader…'}
-          </button>
+          <div className="space-y-1.5">
+            <div
+              onDragOver={(e) => {
+                e.preventDefault()
+                setDragOver(true)
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={onDrop}
+              onClick={() => inputRef.current?.click()}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  inputRef.current?.click()
+                }
+              }}
+              className={cn(
+                'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-6 py-10 text-center transition-colors',
+                dragOver
+                  ? 'border-primary bg-accent/70'
+                  : 'border-light_bronze-700 bg-card/50 hover:border-light_bronze-500 hover:bg-card'
+              )}
+            >
+              <m.div
+                animate={dragOver ? { y: -3, scale: 1.05 } : { y: 0, scale: 1 }}
+                transition={SPRING}
+                className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-primary"
+              >
+                <UploadCloud className="h-6 w-6" />
+              </m.div>
+              <p className="text-sm font-medium text-foreground">
+                {dragOver ? 'Drop to upload' : 'Drag & drop images here'}
+              </p>
+              <p className="text-xs text-muted-foreground">or</p>
+              <span className="btn-primary pointer-events-none h-9 px-4 text-sm">
+                <ImagePlus className="h-4 w-4" /> Browse files
+              </span>
+              <p className="text-xs text-muted-foreground">
+                JPG or PNG · up to 5 MB · {remaining} {remaining === 1 ? 'slot' : 'slots'} left
+              </p>
+              <input
+                ref={inputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  handleFiles(e.target.files)
+                  e.target.value = '' // allow re-selecting the same file
+                }}
+              />
+            </div>
+            {notice && (
+              <p className="text-xs font-medium text-destructive">{notice}</p>
+            )}
+          </div>
         ) : (
           <div className="space-y-1.5">
             <div className="flex gap-2">
