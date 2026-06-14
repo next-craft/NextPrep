@@ -6,7 +6,7 @@ from fastapi.openapi.utils import get_openapi
 from app.core.config import FRONTEND_URL, ENVIRONMENT
 from app.core.redis import create_redis
 from app.jobs.scheduler import scheduler
-from app.routers import chat, listings, payments, users
+from app.routers import chat, listings, payments, reports, users
 import logging
 
 logger = logging.getLogger(__name__)
@@ -36,6 +36,7 @@ app.include_router(payments.router, prefix="/v1")
 app.include_router(payments.status_router, prefix="/v1")
 app.include_router(users.router, prefix="/v1")
 app.include_router(chat.router, prefix="/v1")
+app.include_router(reports.router, prefix="/v1")
 
 
 def _custom_openapi():
