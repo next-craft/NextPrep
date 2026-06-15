@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import FRONTEND_URL, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET
+from app.core.config import ENVIRONMENT, FRONTEND_URL, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET
 from app.models.listing import Listing
 from app.models.transaction import Transaction
 from app.models.user import User
@@ -123,6 +123,21 @@ async def create_onboarding_link(db: AsyncSession, seller: User, seller_email: s
     is still derived solely from `payload["sub"]` (the `db.get` lookup above)."""
     if seller.razorpay_account_id:
         return OnboardResponse(message="Already onboarded")
+
+    # Dev bypass: Razorpay Route (linked accounts / account.create) is not activated on
+    # test accounts, so the real call returns "Access Denied". In development, mark the
+    # seller onboarded with a placeholder id so the selling flow is testable end-to-end.
+    # Production (ENVIRONMENT != "development") always runs the real Razorpay KYC below.
+    if ENVIRONMENT == "development":
+        seller.razorpay_account_id = f"acc_dev_{str(seller.id).replace('-', '')[:16]}"
+        await db.commit()
+        logger.warning(
+            "DEV onboarding bypass: seller=%s marked onboarded without Razorpay Route", seller.id
+        )
+        return OnboardResponse(
+            message="Payouts enabled (development mode — Razorpay Route bypassed).",
+            razorpay_account_id=seller.razorpay_account_id,
+        )
 
     try:
         account = razorpay_client.account.create({
