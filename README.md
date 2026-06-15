@@ -23,6 +23,7 @@ India's peer-to-peer marketplace for exam books, notes, and coaching modules. St
 - [Testing](#testing)
 - [Deployment](#deployment)
 - [Out of scope (v1)](#out-of-scope-v1)
+- [License](#license)
 
 ---
 
@@ -346,6 +347,14 @@ cd backend
 ## Out of scope (v1)
 
 Shipping/courier · delivery tracking · email-password or phone/Aadhaar auth · separate buyer/seller accounts · buyer ratings · admin panel · automated moderation & disputes · WebSockets · mobile app · multi-language · referrals · Celery · JWKS caching · platform fee · featured/sponsored listings · vector/ML search.
+
+---
+
+## License
+
+**Proprietary — All rights reserved.** Copyright © 2026 Daksh Kapoor and Aryan.
+
+This is **not** open-source software. No license is granted to use, copy, modify, deploy, or distribute any part of this project without the prior **written permission** of the owners. See [`LICENSE`](LICENSE) for the full terms.
 
 ---
 
