@@ -32,6 +32,12 @@ export default function Footer() {
             <Link href="/contact" className="link-underline text-muted-foreground hover:text-foreground">
               Contact us
             </Link>
+            <Link href="/privacy" className="link-underline text-muted-foreground hover:text-foreground">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="link-underline text-muted-foreground hover:text-foreground">
+              Terms of Service
+            </Link>
           </nav>
         </div>
 
