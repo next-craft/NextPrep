@@ -39,6 +39,13 @@ app.include_router(chat.router, prefix="/v1")
 app.include_router(reports.router, prefix="/v1")
 
 
+@app.get("/health", include_in_schema=False)
+async def health():
+    """Liveness probe for Railway healthcheck. Unconditional and PII-free,
+    so it survives the production flag that disables /docs."""
+    return {"status": "ok"}
+
+
 def _custom_openapi():
     """Add a Bearer (JWT) security scheme so Swagger shows the global Authorize button.
     verify_token still reads the token from the `Authorization` header exactly as before —
