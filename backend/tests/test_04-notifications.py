@@ -35,7 +35,7 @@ import pytest
 # Helpers / constants
 # ---------------------------------------------------------------------------
 SELLER_EMAIL = "seller@example.com"
-FROM_ADDRESS = "NextPrep <no-reply@yourdomain.com>"
+FROM_ADDRESS = "NextPrep <no-reply@nextprep.online>"
 
 LISTING_ID = uuid.uuid4()
 TRANSACTION_ID = uuid.uuid4()

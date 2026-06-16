@@ -25,6 +25,7 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata = {
+  metadataBase: new URL('https://nextprep.online'),
   title: {
     default: 'NextPrep — Buy & sell exam study material',
     template: '%s · NextPrep',

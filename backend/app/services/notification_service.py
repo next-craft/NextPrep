@@ -25,7 +25,7 @@ async def send_sale_complete(transaction_id: UUID, seller_payout_rupees: int, se
     a missed notification must not affect the (already-committed) payment outcome."""
     try:
         resend.Emails.send({
-            "from": "NextPrep <no-reply@yourdomain.com>",
+            "from": "NextPrep <no-reply@nextprep.online>",
             "to": [seller_email],
             "subject": "Your listing has been sold!",
             "html": (
@@ -43,7 +43,7 @@ async def send_new_message_email(conversation_id: UUID, seller_email: str) -> No
     FastAPI BackgroundTask after the DB session closes. Failures logged, never raised."""
     try:
         resend.Emails.send({
-            "from": "NextPrep <no-reply@yourdomain.com>",
+            "from": "NextPrep <no-reply@nextprep.online>",
             "to": [seller_email],
             "subject": "Someone is interested in your listing",
             "html": (
@@ -68,7 +68,7 @@ async def send_abandoned_checkout_email(listing_id: UUID, seller_email: str) -> 
     provider is reachable."""
     try:
         resend.Emails.send({
-            "from": "NextPrep <no-reply@yourdomain.com>",
+            "from": "NextPrep <no-reply@nextprep.online>",
             "to": [seller_email],
             "subject": "A buyer didn't complete checkout",
             "html": "<p>A buyer started a purchase but did not complete payment. Your listing is still available.</p>",
@@ -96,7 +96,7 @@ async def send_listing_removed_email(listing_id: UUID, seller_email: str, reason
         return
     try:
         resend.Emails.send({
-            "from": "NextPrep <no-reply@yourdomain.com>",
+            "from": "NextPrep <no-reply@nextprep.online>",
             "to": [seller_email],
             "subject": "Your listing was removed from NextPrep",
             "html": (
