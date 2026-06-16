@@ -83,7 +83,11 @@ async def initiate_payment(db: AsyncSession, redis, listing: Listing, buyer_id: 
 
     # timezone-aware UTC — datetime.utcnow() is naive and .timestamp() would assume the
     # local tz, pushing expire_by into the past on non-UTC machines (Razorpay then rejects it).
-    expire_at = datetime.now(timezone.utc) + timedelta(minutes=15)
+    # Razorpay requires expire_by to be >= 15 min in the future when *their* server receives
+    # the request; exactly 15 min fails once request latency/clock skew is counted, so add a
+    # 1-min buffer. The real 15-min window is enforced by the APScheduler cancel job + the
+    # webhook late-check, so this buffer changes nothing functionally.
+    expire_at = datetime.now(timezone.utc) + timedelta(minutes=16)
     payment_link = razorpay_client.payment_link.create({
         "amount": transaction.amount_rupees * 100,  # paise — only at this boundary
         "currency": "INR",
