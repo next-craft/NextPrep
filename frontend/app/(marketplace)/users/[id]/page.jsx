@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { notFound } from 'next/navigation'
 import { MapPin, BadgeCheck, BookOpen, Star } from 'lucide-react'
 import Avatar from '@/components/shared/avatar'
@@ -5,16 +6,36 @@ import ListingGrid from '@/components/listings/ListingGrid'
 import { EmptyState } from '@/components/shared/states'
 import { Reveal, Stagger, StaggerItem } from '@/components/shared/motion'
 import { formatDate } from '@/lib/utils'
+import JsonLd from '@/components/shared/json-ld'
 
 export const revalidate = 0
+
+// Deduped across generateMetadata and the page render within one request.
+const getUser = cache(async function getUser(id) {
+  const r = await fetch(`${process.env.API_URL}/users/${id}`, { cache: 'no-store' })
+  if (!r.ok) return null
+  return r.json()
+})
 
 export async function generateMetadata({ params }) {
   const { id } = await params
   try {
-    const r = await fetch(`${process.env.API_URL}/users/${id}`, { cache: 'no-store' })
-    if (r.ok) {
-      const u = await r.json()
-      return { title: u.full_name, description: `Study material listed by ${u.full_name} on NextPrep.` }
+    const u = await getUser(id)
+    if (u) {
+      const description = `Study material listed by ${u.full_name}${
+        u.city ? ` in ${u.city}` : ''
+      } on NextPrep — ${u.total_sales} ${u.total_sales === 1 ? 'sale' : 'sales'}.`
+      return {
+        title: u.full_name,
+        description,
+        alternates: { canonical: `/users/${id}` },
+        openGraph: {
+          type: 'profile',
+          title: `${u.full_name} · NextPrep`,
+          description,
+          url: `https://nextprep.online/users/${id}`,
+        },
+      }
     }
   } catch {
     /* fall through */
@@ -25,15 +46,9 @@ export async function generateMetadata({ params }) {
 export default async function UserProfilePage({ params }) {
   const { id } = await params
 
-  // API: GET /users/{id} — public profile
-  let user = null
-  try {
-    const res = await fetch(`${process.env.API_URL}/users/${id}`, { cache: 'no-store' })
-    if (res.status === 404 || !res.ok) notFound()
-    user = await res.json()
-  } catch {
-    notFound()
-  }
+  // API: GET /users/{id} — public profile (deduped with generateMetadata via cache())
+  const user = await getUser(id)
+  if (!user) notFound()
 
   // API: GET /listings?seller_id={id} — the seller's public (active) listings
   let listings = []
@@ -44,8 +59,40 @@ export default async function UserProfilePage({ params }) {
     listings = []
   }
 
+  const profileJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'ProfilePage',
+    mainEntity: {
+      '@type': 'Person',
+      name: user.full_name,
+      url: `https://nextprep.online/users/${id}`,
+      ...(user.avatar_url ? { image: user.avatar_url } : {}),
+      ...(user.city ? { homeLocation: { '@type': 'Place', name: user.city } } : {}),
+      ...(user.seller_rating && user.total_sales
+        ? {
+            aggregateRating: {
+              '@type': 'AggregateRating',
+              ratingValue: user.seller_rating,
+              reviewCount: user.total_sales,
+              bestRating: 5,
+            },
+          }
+        : {}),
+    },
+  }
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://nextprep.online' },
+      { '@type': 'ListItem', position: 2, name: 'Browse', item: 'https://nextprep.online/listings' },
+      { '@type': 'ListItem', position: 3, name: user.full_name, item: `https://nextprep.online/users/${id}` },
+    ],
+  }
+
   return (
     <div className="container py-8">
+      <JsonLd data={[profileJsonLd, breadcrumbJsonLd]} />
       <Stagger as="header" gap={0.1} className="flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
         <StaggerItem>
           <Avatar src={user.avatar_url} name={user.full_name} size={84} />

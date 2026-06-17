@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Image from 'next/image'
 import { AnimatePresence } from 'framer-motion'
 import { BookOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -24,17 +25,24 @@ export default function ListingGallery({ images = [], title }) {
     <div className="space-y-3">
       <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-border bg-papaya_whip-700">
         <AnimatePresence initial={false} mode="popLayout">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <m.img
+          <m.div
             key={active}
-            src={images[active]}
-            alt={title}
             initial={{ opacity: 0, scale: 1.03 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: DURATION.base, ease: EASE.warm }}
-            className="absolute inset-0 h-full w-full bg-papaya_whip-700 object-contain"
-          />
+            className="absolute inset-0 bg-papaya_whip-700"
+          >
+            <Image
+              src={images[active]}
+              alt={title}
+              fill
+              // Main image is the LCP element on the listing page — load eagerly.
+              priority={active === 0}
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              className="object-contain"
+            />
+          </m.div>
         </AnimatePresence>
       </div>
       {images.length > 1 && (
@@ -50,8 +58,13 @@ export default function ListingGallery({ images = [], title }) {
               )}
               aria-label={`View image ${i + 1}`}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt="" className="h-full w-full object-cover" />
+              <Image
+                src={url}
+                alt={`${title} — image ${i + 1}`}
+                fill
+                sizes="64px"
+                className="object-cover"
+              />
               {i === active && (
                 <m.span
                   layoutId="gallery-thumb-ring"

@@ -49,3 +49,4 @@ htmlcov/
 # Misc
 setup_ngrok.py
 tunnel.py
+.mcp.json

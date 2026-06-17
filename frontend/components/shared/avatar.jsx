@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Image from 'next/image'
 import { cn, initials } from '@/lib/utils'
 
 /** Google avatar with graceful initials fallback (on missing src or load error). */
@@ -16,8 +17,7 @@ export default function Avatar({ src, name, size = 40, className }) {
       style={{ width: size, height: size }}
     >
       {show ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={src}
           alt={name || 'avatar'}
           width={size}

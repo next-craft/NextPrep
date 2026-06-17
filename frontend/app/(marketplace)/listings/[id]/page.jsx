@@ -1,8 +1,11 @@
+import { cache } from 'react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { MapPin, Eye, BadgeCheck, ChevronRight, ShieldCheck, Settings } from 'lucide-react'
-import { conditionMeta, listingStatus } from '@/lib/utils'
+import { conditionMeta, listingStatus, formatPrice, LISTING_TYPE_LABEL } from '@/lib/utils'
+import { EXAM_CATEGORY_LABEL } from '@/constants/examCategories'
+import JsonLd from '@/components/shared/json-ld'
 import PriceBlock from '@/components/shared/price-block'
 import { ConditionBadge, ListingTypeBadge, ExamCategoryChip } from '@/components/shared/badges'
 import Avatar from '@/components/shared/avatar'
@@ -14,21 +17,42 @@ import { Reveal, Stagger, StaggerItem } from '@/components/shared/motion'
 
 export const revalidate = 0
 
-async function getListing(id) {
+// cache() dedupes this across generateMetadata, the OG image route, and the page
+// render within a single request — without it the listing is fetched 3×.
+const getListing = cache(async function getListing(id) {
   const res = await fetch(`${process.env.API_URL}/listings/${id}`, { cache: 'no-store' })
   if (res.status === 404) return { notFound: true }
   if (!res.ok) return { error: true }
   return { listing: await res.json() }
-}
+})
 
 export async function generateMetadata({ params }) {
   const { id } = await params
   try {
     const { listing } = await getListing(id)
     if (listing) {
+      const examLabel = EXAM_CATEGORY_LABEL[listing.exam_category] ?? listing.exam_category
+      const description =
+        listing.description?.slice(0, 155) ||
+        `${examLabel} ${LISTING_TYPE_LABEL[listing.listing_type] ?? 'study material'} for ${formatPrice(
+          listing.asking_price
+        )} in ${listing.city}.`
+      const canonical = `/listings/${id}`
+      // Sold/paused listings are terminal — keep them out of the index to avoid
+      // soft-404s and stale results, while staying reachable for direct links.
+      const indexable = listingStatus(listing) === 'active'
       return {
         title: listing.title,
-        description: listing.description?.slice(0, 150) || `${listing.exam_category} study material`,
+        description,
+        alternates: { canonical },
+        robots: indexable ? undefined : { index: false, follow: true },
+        openGraph: {
+          type: 'website',
+          title: listing.title,
+          description,
+          url: `https://nextprep.online${canonical}`,
+        },
+        twitter: { card: 'summary_large_image', title: listing.title, description },
       }
     }
   } catch {
@@ -64,8 +88,61 @@ export default async function ListingDetailPage({ params }) {
   const status = listingStatus(listing)
   const isAvailable = status === 'active'
 
+  const url = `https://nextprep.online/listings/${listing.id}`
+  const productJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: listing.title,
+    description:
+      listing.description || `${EXAM_CATEGORY_LABEL[listing.exam_category] ?? listing.exam_category} study material`,
+    category: EXAM_CATEGORY_LABEL[listing.exam_category] ?? listing.exam_category,
+    ...(listing.images?.length ? { image: listing.images } : {}),
+    ...(listing.subject ? { material: listing.subject } : {}),
+    offers: {
+      '@type': 'Offer',
+      url,
+      priceCurrency: 'INR',
+      price: listing.asking_price,
+      // All items are pre-owned; condition grade A/B/C is conveyed in the listing copy.
+      itemCondition: 'https://schema.org/UsedCondition',
+      availability: isAvailable
+        ? 'https://schema.org/InStock'
+        : 'https://schema.org/SoldOut',
+      areaServed: listing.city,
+      ...(seller
+        ? {
+            seller: {
+              '@type': 'Person',
+              name: seller.full_name,
+              url: `https://nextprep.online/users/${seller.id}`,
+            },
+          }
+        : {}),
+    },
+    ...(seller?.seller_rating && seller.total_sales
+      ? {
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: seller.seller_rating,
+            reviewCount: seller.total_sales,
+            bestRating: 5,
+          },
+        }
+      : {}),
+  }
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://nextprep.online' },
+      { '@type': 'ListItem', position: 2, name: 'Browse', item: 'https://nextprep.online/listings' },
+      { '@type': 'ListItem', position: 3, name: listing.title, item: url },
+    ],
+  }
+
   return (
     <div className="container py-6 lg:py-8">
+      <JsonLd data={[productJsonLd, breadcrumbJsonLd]} />
       <Link href="/listings" className="mb-5 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
         ← Back to listings
       </Link>

@@ -15,8 +15,19 @@ import { ExamCategoryChip } from '@/components/shared/badges'
 import { POPULAR_EXAM_CATEGORIES } from '@/constants/examCategories'
 import { Reveal, Stagger, StaggerItem } from '@/components/shared/motion'
 import BookSpineStack from '@/components/shared/book-spine-stack'
+import JsonLd from '@/components/shared/json-ld'
 
 export const revalidate = 0
+
+export const metadata = {
+  alternates: { canonical: '/' },
+  openGraph: {
+    title: 'NextPrep — Buy & sell exam study material',
+    description:
+      'India’s peer-to-peer marketplace for exam study material. Meet locally, inspect before you pay, and pass it on.',
+    url: 'https://nextprep.online',
+  },
+}
 
 const STEPS = [
   { icon: Search, title: 'Browse', body: 'Find books, notes & modules for your exam.' },
@@ -24,6 +35,39 @@ const STEPS = [
   { icon: MapPin, title: 'Meet', body: 'Inspect the material in person, no surprises.' },
   { icon: KeyRound, title: 'Passkey', body: 'The seller shares an 8-digit code when you’re happy.' },
   { icon: IndianRupee, title: 'Pay', body: 'Pay securely in-app; the seller is paid instantly.' },
+]
+
+// FAQPage — answer-first content for Google AI Overviews and answer engines.
+// Sourced from the page's own copy so structured data matches what's rendered.
+const FAQS = [
+  {
+    q: 'How does NextPrep work?',
+    a: 'Browse study material for your exam, message the seller to agree on a meetup, inspect the material in person, then pay securely in-app using the seller’s 8-digit passkey. No shipping, no middlemen.',
+  },
+  {
+    q: 'Is there any shipping or delivery?',
+    a: 'No. NextPrep is in-person meetup only. You meet the seller locally, inspect the book, notes or module before paying, and take it with you.',
+  },
+  {
+    q: 'What can I buy and sell on NextPrep?',
+    a: 'Physical books, handwritten and self-made notes, original coaching modules (Allen, FIITJEE, PW, Aakash), formula sheets, test series and bundles for exams like JEE, NEET, UPSC and CA.',
+  },
+  {
+    q: 'How do payments stay safe?',
+    a: 'You only pay after meeting the seller and inspecting the material. Payment is made in-app and the seller is paid instantly once you confirm with their passkey.',
+  },
+]
+
+const homeJsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: FAQS.map((f) => ({
+      '@type': 'Question',
+      name: f.q,
+      acceptedAnswer: { '@type': 'Answer', text: f.a },
+    })),
+  },
 ]
 
 export default async function Home() {
@@ -43,6 +87,7 @@ export default async function Home() {
 
   return (
     <div>
+      <JsonLd data={homeJsonLd} />
       {/* ── Hero ───────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden">
         <div className="container grid items-center gap-10 py-14 lg:grid-cols-2 lg:py-20">

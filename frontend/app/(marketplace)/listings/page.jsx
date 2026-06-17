@@ -7,11 +7,39 @@ import { EmptyState, ErrorState } from '@/components/shared/states'
 import ResultCount from '@/components/listings/ResultCount'
 import { Reveal } from '@/components/shared/motion'
 import { Compass, SearchX } from 'lucide-react'
+import JsonLd from '@/components/shared/json-ld'
+
+const listingsJsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: 'Browse study material',
+    description: 'Books, notes and coaching modules for JEE, NEET, UPSC, CA and more.',
+    url: 'https://nextprep.online/listings',
+    isPartOf: { '@id': 'https://nextprep.online/#website' },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://nextprep.online' },
+      { '@type': 'ListItem', position: 2, name: 'Browse', item: 'https://nextprep.online/listings' },
+    ],
+  },
+]
 
 export const revalidate = 0 // always fresh — ISR not needed here
 export const metadata = {
   title: 'Browse study material',
   description: 'Browse books, notes and coaching modules for JEE, NEET, UPSC, CA and more.',
+  // All filter permutations (?q, ?exam_category, ?city…) are near-duplicate thin
+  // pages — canonical them to the clean URL to avoid index bloat.
+  alternates: { canonical: '/listings' },
+  openGraph: {
+    title: 'Browse study material · NextPrep',
+    description: 'Browse books, notes and coaching modules for JEE, NEET, UPSC, CA and more.',
+    url: 'https://nextprep.online/listings',
+  },
 }
 
 export default async function ListingsPage({ searchParams }) {
@@ -37,6 +65,7 @@ export default async function ListingsPage({ searchParams }) {
 
   return (
     <div className="container py-6 lg:py-8">
+      <JsonLd data={listingsJsonLd} />
       <Reveal className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-semibold sm:text-3xl">Browse study material</h1>

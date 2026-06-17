@@ -7,6 +7,7 @@ export const metadata = {
   title: 'Terms of Service',
   description:
     'The rules for using NextPrep — India\'s peer-to-peer marketplace for exam study material.',
+  alternates: { canonical: '/terms' },
 }
 
 function Section({ title, children }) {

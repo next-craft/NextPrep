@@ -7,6 +7,7 @@ export const metadata = {
   title: 'Privacy Policy',
   description:
     'How NextPrep collects, uses, and protects your data. India\'s peer-to-peer marketplace for exam study material.',
+  alternates: { canonical: '/privacy' },
 }
 
 function Section({ title, children }) {

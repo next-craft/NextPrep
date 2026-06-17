@@ -5,6 +5,7 @@ const EMAIL = 'support.nextprep@gmail.com'
 export const metadata = {
   title: 'Contact us',
   description: 'Get in touch with the NextPrep team — support, feedback, or to report a listing.',
+  alternates: { canonical: '/contact' },
 }
 
 export default function ContactPage() {

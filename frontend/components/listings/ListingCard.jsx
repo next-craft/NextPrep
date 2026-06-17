@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { MapPin, BookOpen } from 'lucide-react'
 import PriceBlock from '@/components/shared/price-block'
 import { ConditionBadge, ListingTypeBadge } from '@/components/shared/badges'
@@ -19,13 +20,13 @@ export default function ListingCard({ listing, className }) {
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-papaya_whip-700">
         {listing.images?.[0] ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={listing.images[0]}
             alt={listing.title}
-            loading="lazy"
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             className={cn(
-              'h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105',
+              'object-cover transition-transform duration-500 ease-out group-hover:scale-105',
               dimmed && 'opacity-70'
             )}
           />
