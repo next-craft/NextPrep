@@ -23,6 +23,7 @@ export default function BuyNowButton({ listingId, className }) {
   const [passkey, setPasskey] = useState('')
   const [error, setError] = useState(null)
   const [completed, setCompleted] = useState(null) // { transaction_id, seller_name }
+  const [rated, setRated] = useState(false)
 
   const { mutate, isPending } = useMutation({
     // API: POST /transactions/verify-passkey
@@ -52,10 +53,11 @@ export default function BuyNowButton({ listingId, className }) {
           <RateSeller
             transactionId={completed.transaction_id}
             sellerName={completed.seller_name}
+            onRated={() => setRated(true)}
           />
         </div>
         <Link href="/dashboard?tab=transactions" className="btn-ghost w-full">
-          Skip for now
+          {rated ? 'View my purchases' : 'Skip for now'}
         </Link>
       </m.div>
     )

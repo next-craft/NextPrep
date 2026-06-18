@@ -5,7 +5,7 @@ import {
   MessageCircle,
   MapPin,
   KeyRound,
-  IndianRupee,
+  CheckCircle2,
   ShieldCheck,
   Users,
   ArrowRight,
@@ -32,9 +32,9 @@ export const metadata = {
 const STEPS = [
   { icon: Search, title: 'Browse', body: 'Find books, notes & modules for your exam.' },
   { icon: MessageCircle, title: 'Chat', body: 'Message the seller and agree to meet.' },
-  { icon: MapPin, title: 'Meet', body: 'Inspect the material in person, no surprises.' },
-  { icon: KeyRound, title: 'Passkey', body: 'The seller shares an 8-digit code when you’re happy.' },
-  { icon: IndianRupee, title: 'Pay', body: 'Pay securely in-app; the seller is paid instantly.' },
+  { icon: MapPin, title: 'Meet', body: 'Inspect the material and settle payment in person.' },
+  { icon: KeyRound, title: 'Passkey', body: 'The seller shares an 8-digit code once you’ve paid them.' },
+  { icon: CheckCircle2, title: 'Confirm', body: 'Enter the code to confirm the exchange and rate the seller.' },
 ]
 
 // FAQPage — answer-first content for Google AI Overviews and answer engines.
@@ -42,7 +42,7 @@ const STEPS = [
 const FAQS = [
   {
     q: 'How does NextPrep work?',
-    a: 'Browse study material for your exam, message the seller to agree on a meetup, inspect the material in person, then pay securely in-app using the seller’s 8-digit passkey. No shipping, no middlemen.',
+    a: 'Browse study material for your exam, message the seller to agree on a meetup, inspect the material and settle payment in person, then enter the seller’s 8-digit passkey in the app to confirm the exchange. No shipping, no middlemen — the platform does not process payments.',
   },
   {
     q: 'Is there any shipping or delivery?',
@@ -137,7 +137,7 @@ export default async function Home() {
         <Stagger inView gap={0.1} className="container grid gap-6 py-6 sm:grid-cols-3">
           {[
             { icon: MapPin, t: 'In-person meetup', d: 'Meet locally — no shipping, no courier.' },
-            { icon: KeyRound, t: 'Passkey-protected', d: 'Pay only after you inspect the material.' },
+            { icon: KeyRound, t: 'Passkey-verified', d: 'Confirm only after you inspect the material.' },
             { icon: ShieldCheck, t: 'Real students', d: 'Google sign-in. No anonymous resellers.' },
           ].map((x) => (
             <StaggerItem key={x.t} className="flex items-start gap-3">
@@ -159,7 +159,7 @@ export default async function Home() {
           How it works
         </Reveal>
         <Reveal inView delay={0.05} as="p" className="mx-auto mt-2 max-w-md text-center text-muted-foreground">
-          From finding the right book to paying for it — five simple steps.
+          From finding the right book to confirming the exchange — five simple steps.
         </Reveal>
         <Stagger inView gap={0.08} as="ol" className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {STEPS.map((s, i) => (
