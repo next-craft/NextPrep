@@ -18,24 +18,25 @@ resend.api_key = config.RESEND_API_KEY
 _VALID_REASON_CATEGORIES = frozenset(get_args(ReportReason))
 
 
-async def send_sale_complete(transaction_id: UUID, seller_payout_rupees: int, seller_email: str) -> None:
-    """Takes plain values rather than a Transaction ORM object — this runs as a
-    FastAPI BackgroundTask, after the request's DB session has closed, so the
-    instance would otherwise be detached. Failures are logged, never raised —
-    a missed notification must not affect the (already-committed) payment outcome."""
+async def send_sale_complete(listing_title: str, seller_email: str) -> None:
+    """Notifies the seller that a buyer verified the passkey and the listing is sold.
+    Runs as a FastAPI BackgroundTask after the request's DB session has closed, so it
+    takes plain values, not an ORM object. Failures are logged, never raised — a missed
+    notification must not affect the (already-committed) sale. The platform processes no
+    payment, so this carries no amount."""
     try:
         resend.Emails.send({
             "from": "NextPrep <no-reply@nextprep.online>",
             "to": [seller_email],
             "subject": "Your listing has been sold!",
             "html": (
-                f"<p>Your listing has been purchased. "
-                f"₹{seller_payout_rupees} will be credited to your Razorpay account.</p>"
+                f"<p>A buyer confirmed the exchange of <strong>{listing_title}</strong> "
+                f"with your passkey. The listing is now marked as sold.</p>"
             ),
         })
-        logger.info("Sale complete email sent: transaction=%s", transaction_id)
+        logger.info("Sale complete email sent: listing=%s", listing_title)
     except Exception as e:
-        logger.error("Failed to send sale complete email: transaction=%s error=%s", transaction_id, str(e))
+        logger.error("Failed to send sale complete email: listing=%s error=%s", listing_title, str(e))
 
 
 async def send_new_message_email(conversation_id: UUID, seller_email: str) -> None:
@@ -57,25 +58,6 @@ async def send_new_message_email(conversation_id: UUID, seller_email: str) -> No
             "Failed to send first-message email: conversation=%s error=%s",
             conversation_id, str(e)
         )
-
-
-async def send_abandoned_checkout_email(listing_id: UUID, seller_email: str) -> None:
-    """Notifies the seller that a buyer abandoned checkout. Takes plain values
-    (mirrors `send_sale_complete`) rather than a Transaction ORM object, since the
-    scheduler builds its `cancelled` list from a bulk UPDATE...RETURNING and never
-    holds onto live ORM rows. Failures are logged, never raised — the scheduler
-    must keep cancelling abandoned transactions regardless of whether the email
-    provider is reachable."""
-    try:
-        resend.Emails.send({
-            "from": "NextPrep <no-reply@nextprep.online>",
-            "to": [seller_email],
-            "subject": "A buyer didn't complete checkout",
-            "html": "<p>A buyer started a purchase but did not complete payment. Your listing is still available.</p>",
-        })
-        logger.info("Abandoned checkout email sent: listing=%s", listing_id)
-    except Exception as e:
-        logger.error("Failed to send abandoned email: listing=%s error=%s", listing_id, str(e))
 
 
 async def send_listing_removed_email(listing_id: UUID, seller_email: str, reason_category: str) -> None:

@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 async def create_listing(
     db: AsyncSession, seller_id: str, data: ListingCreate
 ) -> tuple[Listing, str]:
-    # Seller onboarding gate (razorpay_account_id) is enforced in the router.
     passkey = generate_passkey()
 
     listing = Listing(

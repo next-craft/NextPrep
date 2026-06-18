@@ -3,13 +3,12 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { useMe } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 
 /**
- * Auth-aware "sell" entry point. Safe to render on public pages — it only
- * queries /users/me once we know the visitor is signed in (avoids the
- * 401 → /login redirect for anonymous browsers).
+ * Auth-aware "sell" entry point. Safe to render on public pages — anonymous
+ * visitors are sent to /login; signed-in users go straight to the create form
+ * (no payout setup gate — the platform processes no payments).
  */
 export default function CreateListingButton({ className }) {
   const supabase = createClient()
@@ -23,9 +22,7 @@ export default function CreateListingButton({ className }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const { data: me, isLoading } = useMe({ enabled: authed === true })
-
-  if (authed === null || (authed && isLoading)) {
+  if (authed === null) {
     return <div className={cn('h-11 w-40 animate-pulse rounded-md bg-light_bronze-800/60', className)} />
   }
 
@@ -37,21 +34,9 @@ export default function CreateListingButton({ className }) {
     )
   }
 
-  // API: GET /users/me — gate creation behind completed Razorpay onboarding
-  if (me?.razorpay_account_id) {
-    return (
-      <Link href="/listings/new" className={cn('btn-primary', className)}>
-        <Plus className="h-4 w-4" /> Create listing
-      </Link>
-    )
-  }
-
   return (
-    <div className="flex flex-col items-start gap-1 sm:items-end">
-      <Link href="/sell/onboard" className={cn('btn-primary', className)}>
-        <Plus className="h-4 w-4" /> Set up payouts to sell
-      </Link>
-      <p className="text-xs text-muted-foreground">Complete payment setup to start selling.</p>
-    </div>
+    <Link href="/listings/new" className={cn('btn-primary', className)}>
+      <Plus className="h-4 w-4" /> Create listing
+    </Link>
   )
 }

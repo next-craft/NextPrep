@@ -63,14 +63,3 @@ export function ListingStatusBadge({ status, className }) {
   const meta = LISTING_STATUS[status] ?? LISTING_STATUS.active
   return <span className={cn('badge', STATUS_TINT[meta.tint], className)}>{meta.label}</span>
 }
-
-const TX_STATUS = {
-  initiated: { label: 'Initiated', tint: 'warning' },
-  released: { label: 'Released', tint: 'success' },
-  cancelled: { label: 'Cancelled', tint: 'neutral' },
-}
-
-export function TransactionStatusBadge({ status, className }) {
-  const meta = TX_STATUS[status] ?? TX_STATUS.initiated
-  return <span className={cn('badge', STATUS_TINT[meta.tint], className)}>{meta.label}</span>
-}

@@ -69,7 +69,7 @@ export default function SettingsPage() {
               {me.is_verified && <BadgeCheck className="h-4 w-4 text-primary" />}
             </p>
             <p className="text-sm text-muted-foreground">
-              {me.total_sales} {me.total_sales === 1 ? 'sale' : 'sales'}
+              {me.books_sold} {me.books_sold === 1 ? 'sale' : 'sales'} · {me.books_bought} bought
               {me.seller_rating ? ` · ★ ${me.seller_rating}` : ''}
             </p>
             <Link

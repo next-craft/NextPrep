@@ -107,9 +107,10 @@ export default function PasskeyDisplay({
           <TriangleAlert className="h-4 w-4 shrink-0" /> You won&apos;t be able to see this code again.
         </p>
         <p className="mt-1.5 leading-relaxed">
-          Copy or memorise it now. Give it to the buyer only when they&apos;re ready to pay at the
-          meetup — the order is <strong className="text-light_bronze-100">meet → inspect → share
-          passkey → pay</strong>. Don&apos;t share it over chat; buyers enter it in the app.
+          Copy or memorise it now. Give it to the buyer only after they&apos;ve inspected the
+          material and you&apos;ve handed over the book — the order is{' '}
+          <strong className="text-light_bronze-100">meet → inspect → exchange → share code</strong>.
+          Don&apos;t share it over chat; the buyer enters it in the app to confirm the exchange.
         </p>
       </div>
 

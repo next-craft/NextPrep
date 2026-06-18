@@ -1,10 +1,8 @@
 'use client'
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import Link from 'next/link'
-import { Loader2, CreditCard } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import api from '@/lib/api'
-import { useMe } from '@/lib/queries'
 import { EXAM_CATEGORIES } from '@/constants/examCategories'
 import { LISTING_TYPES } from '@/constants/listingTypes'
 import { CONDITIONS } from '@/constants/conditions'
@@ -15,7 +13,6 @@ import PasskeyReveal from '@/components/listings/PasskeyReveal'
 import { Reveal, Stagger, StaggerItem } from '@/components/shared/motion'
 
 export default function CreateListingForm() {
-  const { data: me, isLoading } = useMe()
   const [passkey, setPasskey] = useState(null)
   const [listingId, setListingId] = useState(null)
   const [images, setImages] = useState([])
@@ -33,35 +30,6 @@ export default function CreateListingForm() {
     return (
       <div className="container py-10">
         <PasskeyReveal passkey={passkey} listingId={listingId} />
-      </div>
-    )
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center py-24">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
-
-  // Gate listing creation behind completed Razorpay onboarding (POST /listings 403s otherwise).
-  if (!me?.razorpay_account_id) {
-    return (
-      <div className="container py-16">
-        <div className="card mx-auto max-w-md animate-scale-in p-8 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
-            <CreditCard className="h-6 w-6" />
-          </div>
-          <h1 className="font-display text-xl font-semibold">Set up payouts before you list</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Complete a one-time KYC with Razorpay so buyers can pay you directly. The platform never
-            holds your money.
-          </p>
-          <Link href="/sell/onboard" className="btn-primary mt-6 w-full">
-            Set up payouts
-          </Link>
-        </div>
       </div>
     )
   }

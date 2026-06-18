@@ -10,7 +10,8 @@ _admin_client: Client | None = None
 
 
 def get_supabase_admin() -> Client:
-    """Service-role Supabase client. Background jobs and the payment webhook only —
+    """Service-role Supabase client. Background jobs and post-response notification
+    tasks only (resolving a seller's email for sale/first-message alerts) —
     never inject this into a request-scoped dependency."""
     global _admin_client
     if _admin_client is None:

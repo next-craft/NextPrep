@@ -1,5 +1,5 @@
 import logging
-from sqlalchemy import CheckConstraint, Column, ForeignKey, Integer, TIMESTAMP, UniqueConstraint, text
+from sqlalchemy import CheckConstraint, Column, ForeignKey, Integer, String, TIMESTAMP, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
 
@@ -14,6 +14,7 @@ class SellerRating(Base):
     rated_by       = Column(UUID(as_uuid=True), ForeignKey("public.users.id", ondelete="CASCADE"), nullable=False)
     seller_id      = Column(UUID(as_uuid=True), ForeignKey("public.users.id", ondelete="CASCADE"), nullable=False)
     rating         = Column(Integer, nullable=False)
+    review         = Column(String)  # optional free-text review
     created_at     = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text("now()"))
 
     __table_args__ = (

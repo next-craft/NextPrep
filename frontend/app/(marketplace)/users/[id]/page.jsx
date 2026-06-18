@@ -24,7 +24,7 @@ export async function generateMetadata({ params }) {
     if (u) {
       const description = `Study material listed by ${u.full_name}${
         u.city ? ` in ${u.city}` : ''
-      } on NextPrep — ${u.total_sales} ${u.total_sales === 1 ? 'sale' : 'sales'}.`
+      } on NextPrep — ${u.books_sold} ${u.books_sold === 1 ? 'sale' : 'sales'}.`
       return {
         title: u.full_name,
         description,
@@ -68,12 +68,12 @@ export default async function UserProfilePage({ params }) {
       url: `https://nextprep.online/users/${id}`,
       ...(user.avatar_url ? { image: user.avatar_url } : {}),
       ...(user.city ? { homeLocation: { '@type': 'Place', name: user.city } } : {}),
-      ...(user.seller_rating && user.total_sales
+      ...(user.seller_rating && user.books_sold
         ? {
             aggregateRating: {
               '@type': 'AggregateRating',
               ratingValue: user.seller_rating,
-              reviewCount: user.total_sales,
+              reviewCount: user.books_sold,
               bestRating: 5,
             },
           }
@@ -109,11 +109,17 @@ export default async function UserProfilePage({ params }) {
               </span>
             )}
             <span>
-              {user.total_sales} {user.total_sales === 1 ? 'sale' : 'sales'}
+              {user.books_sold} {user.books_sold === 1 ? 'sale' : 'sales'}
+            </span>
+            <span>
+              {user.books_bought} bought
             </span>
             {user.seller_rating != null && (
               <span className="inline-flex items-center gap-1">
                 <Star className="h-4 w-4 fill-current text-light_bronze-400" /> {user.seller_rating}
+                {user.books_sold > 0 && (
+                  <span className="text-muted-foreground"> · {user.books_sold} verified</span>
+                )}
               </span>
             )}
             {user.created_at && <span>Joined {formatDate(user.created_at)}</span>}

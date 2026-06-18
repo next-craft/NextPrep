@@ -17,10 +17,12 @@ class User(Base):
     full_name     = Column(String, nullable=False)
     city          = Column(String)
     avatar_url    = Column(String)
+    # Verification badge — earned, not granted at signup: True once books_sold >= 10
+    # verified transactions. Set in the verify-passkey path; no longer set by the trigger.
     is_verified   = Column(Boolean, nullable=False, server_default="false")
     seller_rating = Column(Numeric(3, 2))
-    total_sales   = Column(Integer, nullable=False, server_default="0")
-    razorpay_account_id = Column(String)
+    books_sold    = Column(Integer, nullable=False, server_default="0")
+    books_bought  = Column(Integer, nullable=False, server_default="0")
     created_at    = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text("now()"))
 
     __table_args__ = (

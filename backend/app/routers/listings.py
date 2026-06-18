@@ -9,7 +9,7 @@ from app.core.security import verify_token
 from app.schemas.listing import (
     ListingCreate, ListingCreateOut, ListingOut, ListingUpdate
 )
-from app.services import listing_service, user_service
+from app.services import listing_service
 
 router = APIRouter(prefix="/listings", tags=["listings"])
 logger = logging.getLogger(__name__)
@@ -40,9 +40,6 @@ async def create_listing(
     user=Depends(verify_token),
 ):
     seller_id = user["sub"]
-    seller = await user_service.get_user_by_id(db, seller_id)
-    if not seller or not seller.razorpay_account_id:
-        raise HTTPException(status_code=403, detail="Complete payment setup to start selling.")
     listing, passkey = await listing_service.create_listing(db, seller_id, data)
     return ListingCreateOut(listing=ListingOut.model_validate(listing), passkey=passkey)
 

@@ -48,7 +48,7 @@ export default function Footer() {
               <MapPin className="h-3.5 w-3.5" /> In-person meetup only
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <ShieldCheck className="h-3.5 w-3.5" /> Passkey-protected payments
+              <ShieldCheck className="h-3.5 w-3.5" /> Passkey-verified exchanges
             </span>
             <span className="inline-flex items-center gap-1.5">
               <BookOpen className="h-3.5 w-3.5" /> No piracy

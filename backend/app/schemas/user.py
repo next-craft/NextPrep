@@ -12,10 +12,10 @@ class UserMe(BaseModel):
     full_name: str
     city: Optional[str] = None
     avatar_url: Optional[str] = None
-    is_verified: bool
+    is_verified: bool  # verification badge — earned at 10 verified sales
     seller_rating: Optional[float] = None
-    total_sales: int
-    razorpay_account_id: Optional[str] = None
+    books_sold: int
+    books_bought: int
     created_at: datetime
 
 
@@ -26,9 +26,10 @@ class UserPublic(BaseModel):
     full_name: str
     city: Optional[str] = None
     avatar_url: Optional[str] = None
-    is_verified: bool
+    is_verified: bool  # verification badge — earned at 10 verified sales
     seller_rating: Optional[float] = None
-    total_sales: int
+    books_sold: int
+    books_bought: int
     created_at: datetime
 
 

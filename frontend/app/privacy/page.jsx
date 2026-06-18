@@ -54,15 +54,15 @@ export default function PrivacyPage() {
               the platform, retained so conversations remain available to both parties.
             </p>
             <p>
-              <strong className="text-foreground">Payment information.</strong> Payments are processed by Razorpay.
-              We do not store your card, UPI, or bank details — those are handled directly by Razorpay under their
-              own privacy policy.
+              <strong className="text-foreground">Payments.</strong> NextPrep does not process payments and does
+              not collect or store any card, UPI, or bank details. Buyers and sellers settle payment directly
+              between themselves at the meetup.
             </p>
           </Section>
 
           <Section title="2. How we use your information">
             <p>To operate the marketplace: show listings, enable chat between buyers and sellers, and verify
-              in-person handovers using a passkey before payment is released.</p>
+              in-person handovers using a passkey that confirms a completed exchange.</p>
             <p>To send essential notifications — for example, the first message in a new conversation — via email.</p>
             <p>To keep the platform safe: detect and remove pirated material, prohibited content, and abuse.</p>
           </Section>
@@ -75,8 +75,8 @@ export default function PrivacyPage() {
 
           <Section title="4. Sharing of information">
             <p>We share data only with the service providers that make NextPrep work: Supabase (authentication and
-              database), Cloudinary (image hosting), Razorpay (payments), and Resend (transactional email). Each
-              processes data only to provide their service.</p>
+              database), Cloudinary (image hosting), and Resend (transactional email). Each processes data only to
+              provide their service.</p>
             <p>We may disclose information if required by Indian law or to protect the rights and safety of our
               users.</p>
           </Section>

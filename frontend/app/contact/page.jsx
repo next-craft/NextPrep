@@ -47,7 +47,7 @@ export default function ContactPage() {
             <MessageCircle className="h-5 w-5 text-primary" />
             <h2 className="mt-2 font-medium">Buying or selling help</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Trouble with a passkey, payment, or your account? Include your registered email so we can find
+              Trouble with a passkey, a transaction, or your account? Include your registered email so we can find
               you quickly.
             </p>
           </div>

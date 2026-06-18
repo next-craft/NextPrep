@@ -1,14 +1,15 @@
 'use client'
-import Link from 'next/link'
-import { Receipt, ArrowRight } from 'lucide-react'
+import { useState } from 'react'
+import { Receipt, Star } from 'lucide-react'
 import { useMyTransactions } from '@/lib/queries'
-import { TransactionStatusBadge } from '@/components/shared/badges'
+import RateSeller from '@/components/shared/rate-seller'
 import { EmptyState } from '@/components/shared/states'
 import { Stagger, StaggerItem } from '@/components/shared/motion'
-import { formatPrice, formatDate } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 
 export default function TransactionsTab() {
   const { data: txns = [], isLoading } = useMyTransactions()
+  const [rating, setRating] = useState(null) // transaction id currently being rated
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading your transactions…</p>
@@ -19,7 +20,7 @@ export default function TransactionsTab() {
       <EmptyState
         icon={Receipt}
         title="No transactions yet"
-        description="Your purchases and sales will appear here once a payment goes through."
+        description="Your verified purchases and sales appear here once a passkey is confirmed at a meetup."
       />
     )
   }
@@ -27,27 +28,33 @@ export default function TransactionsTab() {
   return (
     <Stagger gap={0.05} className="space-y-3">
       {txns.map((t) => (
-        <StaggerItem key={t.id} className="card flex items-center gap-4 p-4">
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-medium">{t.listing_title || 'Listing removed'}</p>
-            <p className="mt-0.5 text-xs capitalize text-muted-foreground">
-              {t.role} · {formatDate(t.created_at)}
-            </p>
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-1.5">
-            <span className="font-semibold">{formatPrice(t.amount_rupees)}</span>
-            <div className="flex items-center gap-2">
-              <TransactionStatusBadge status={t.status} />
-              {t.status === 'initiated' && (
-                <Link
-                  href={`/transactions/${t.id}/status`}
-                  className="inline-flex items-center gap-0.5 text-xs font-medium text-primary hover:text-light_bronze-200"
-                >
-                  Resume <ArrowRight className="h-3 w-3" />
-                </Link>
-              )}
+        <StaggerItem key={t.id} className="card p-4">
+          <div className="flex items-center gap-4">
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium">{t.listing_title || 'Listing removed'}</p>
+              <p className="mt-0.5 text-xs capitalize text-muted-foreground">
+                {t.role === 'buyer' ? 'Bought' : 'Sold'} · {formatDate(t.created_at)}
+              </p>
             </div>
+            {t.can_rate && rating !== t.id && (
+              <button
+                type="button"
+                onClick={() => setRating(t.id)}
+                className="btn-secondary shrink-0"
+              >
+                <Star className="h-4 w-4" /> Rate seller
+              </button>
+            )}
           </div>
+          {rating === t.id && (
+            <div className="mt-4 border-t border-border pt-4">
+              <RateSeller
+                transactionId={t.id}
+                sellerName={t.seller_name}
+                onRated={() => setRating(null)}
+              />
+            </div>
+          )}
         </StaggerItem>
       ))}
     </Stagger>

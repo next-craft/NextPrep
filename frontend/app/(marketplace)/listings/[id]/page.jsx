@@ -119,12 +119,12 @@ export default async function ListingDetailPage({ params }) {
           }
         : {}),
     },
-    ...(seller?.seller_rating && seller.total_sales
+    ...(seller?.seller_rating && seller.books_sold
       ? {
           aggregateRating: {
             '@type': 'AggregateRating',
             ratingValue: seller.seller_rating,
-            reviewCount: seller.total_sales,
+            reviewCount: seller.books_sold,
             bestRating: 5,
           },
         }
@@ -215,7 +215,7 @@ export default async function ListingDetailPage({ params }) {
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
                       {seller.city ? `${seller.city} · ` : ''}
-                      {seller.total_sales} {seller.total_sales === 1 ? 'sale' : 'sales'}
+                      {seller.books_sold} {seller.books_sold === 1 ? 'sale' : 'sales'}
                       {seller.seller_rating ? ` · ★ ${seller.seller_rating}` : ''}
                     </p>
                   </div>
@@ -238,8 +238,9 @@ export default async function ListingDetailPage({ params }) {
                 </div>
                 <p className="flex items-start gap-2 rounded-lg bg-secondary/60 p-3 text-xs text-secondary-foreground">
                   <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-                  Meet in a public place, inspect the material, then pay. Never share or enter your
-                  passkey over chat.
+                  Meet in a public place, inspect the material, and settle payment directly with the
+                  seller. Then enter the seller&apos;s code here to confirm the exchange. Never share
+                  the code over chat.
                 </p>
               </div>
             ) : isAvailable && !user ? (

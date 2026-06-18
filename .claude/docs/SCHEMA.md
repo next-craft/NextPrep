@@ -12,16 +12,20 @@ id            UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE
 full_name     TEXT NOT NULL
 city          TEXT
 avatar_url    TEXT
-is_verified   BOOLEAN DEFAULT FALSE    -- Google OAuth email verified
-seller_rating NUMERIC(3,2)            -- avg of received seller ratings
-total_sales   INTEGER DEFAULT 0
+is_verified   BOOLEAN DEFAULT FALSE    -- verification badge: auto TRUE once books_sold >= 10
+seller_rating NUMERIC(3,2)            -- avg of received 1-5 seller ratings
+books_sold    INTEGER DEFAULT 0       -- verified completed sales (== verified transactions)
+books_bought  INTEGER DEFAULT 0       -- verified completed purchases
 created_at    TIMESTAMPTZ DEFAULT now()
 ```
 
 - No `email`, no `password_hash`, no `phone` — Supabase Auth owns identity
 - One account per user — same account for buying and selling
 - Email available via `payload["email"]` from JWT when needed in backend
-- Row auto-created by trigger on Supabase signup (see AUTH.md)
+- Row auto-created by trigger on Supabase signup (see AUTH.md). The trigger no longer
+  sets `is_verified` — the badge is earned via verified transactions, not OAuth email.
+- `books_sold` / `books_bought` are counters incremented atomically when a passkey is
+  verified (see TRANSACTIONS.md). `is_verified` is flipped TRUE in the same step at 10 sales.
 
 ---
 
@@ -60,7 +64,7 @@ CONSTRAINT no_available_sold_listing CHECK (
 - No `status` text column — availability via `is_available` boolean
 - `asking_price` and `original_price` in whole rupees — no paise, ever
 - `subject` accepts free text, no DB constraint. UI shows popular dropdown defaults + "Other"
-- Passkey stored as hash only — plaintext never persisted. See PAYMENT.md.
+- Passkey stored as hash only — plaintext never persisted. See TRANSACTIONS.md.
 - Constraint blocks only: `is_available=TRUE AND sold_at IS NOT NULL` (impossible state)
 - Valid states: `is_available=TRUE/sold_at=NULL` (active), `is_available=FALSE/sold_at=NULL` (paused/suspended), `is_available=FALSE/sold_at=NOT NULL` (sold)
 
@@ -98,37 +102,28 @@ created_at       TIMESTAMPTZ DEFAULT now()
 
 ## transactions
 
+A row exists ONLY for a completed, passkey-verified exchange — there is no payment or
+pending state, and no amount is tracked (the platform processes no money). One row per
+sold listing.
+
 ```sql
-id                          UUID PRIMARY KEY DEFAULT gen_random_uuid()
-listing_id                  UUID REFERENCES listings(id)
-buyer_id                    UUID REFERENCES public.users(id)
-seller_id                   UUID REFERENCES public.users(id)
-amount_rupees               INTEGER NOT NULL        -- whole rupees
-platform_fee_rupees         INTEGER NOT NULL DEFAULT 0   -- 0% in v1
-seller_payout_rupees        INTEGER NOT NULL
-razorpay_payment_link_id    TEXT UNIQUE
-razorpay_payment_link_url   TEXT
-razorpay_payment_id         TEXT UNIQUE
-status                      TEXT DEFAULT 'initiated'
-  -- initiated | released | cancelled
-created_at                  TIMESTAMPTZ DEFAULT now()
-released_at                 TIMESTAMPTZ
-refunded_at                 TIMESTAMPTZ
+id          UUID PRIMARY KEY DEFAULT gen_random_uuid()
+listing_id  UUID REFERENCES listings(id) ON DELETE SET NULL
+buyer_id    UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE
+seller_id   UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE
+created_at  TIMESTAMPTZ DEFAULT now()
 ```
 
-Partial unique index — prevents duplicate initiated transactions per buyer per listing:
+Partial unique index — a listing sells exactly once, so at most one verified transaction
+per listing (NULL `listing_id`, set when a listing is deleted, is not deduped):
 ```sql
-CREATE UNIQUE INDEX one_active_transaction_per_buyer_listing
-    ON transactions (listing_id, buyer_id)
-    WHERE status = 'initiated';
+CREATE UNIQUE INDEX uq_transaction_per_listing
+    ON transactions (listing_id)
+    WHERE listing_id IS NOT NULL;
 ```
 
-**Status definitions:**
-- `initiated` — passkey correct, Razorpay payment link generated, buyer on payment screen
-- `released` — webhook confirmed payment, seller paid via Route (terminal)
-- `cancelled` — abandoned after 15 min, or late/concurrent webhook refund (terminal)
-
-`disputed` does not exist as a transaction status. Blocked buyers tracked in Redis only.
+No `status`, no `amount_rupees`, no payout, no Razorpay columns. Blocked buyers
+(3 wrong passkey attempts) are tracked in Redis only.
 
 ---
 
@@ -136,14 +131,18 @@ CREATE UNIQUE INDEX one_active_transaction_per_buyer_listing
 
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
-transaction_id  UUID REFERENCES transactions(id)
+transaction_id  UUID REFERENCES transactions(id) ON DELETE CASCADE
 rated_by        UUID REFERENCES public.users(id)
 seller_id       UUID REFERENCES public.users(id)
 rating          INTEGER CHECK (rating BETWEEN 1 AND 5)
+review          TEXT                    -- optional free-text review
 created_at      TIMESTAMPTZ DEFAULT now()
 
-UNIQUE(transaction_id, rated_by)    -- prevents duplicate ratings per transaction
+UNIQUE(transaction_id, rated_by)    -- one rating per transaction (buyer only)
 ```
+
+Only the buyer of a transaction may rate, and only once. After each insert the seller's
+`public.users.seller_rating` is recomputed as `AVG(rating)` over their ratings.
 
 ---
 
@@ -190,11 +189,6 @@ All parameters through SQLAlchemy ORM — never string-interpolated.
 ## Debug queries
 
 ```sql
--- Initiated transactions older than 15 min (APScheduler should have caught these)
-SELECT * FROM transactions
-WHERE status = 'initiated'
-AND created_at < now() - interval '15 minutes';
-
 -- Conversations with unread messages older than 24h (seller not responding)
 SELECT c.id, c.listing_id, COUNT(m.id) as unread
 FROM conversations c
@@ -215,14 +209,21 @@ FROM listings
 WHERE is_available = TRUE
 GROUP BY listing_type;
 
--- Revenue summary by day
+-- Verified transactions (completed exchanges) by day
 SELECT
   DATE_TRUNC('day', created_at) as day,
-  COUNT(*) as transactions,
-  SUM(amount_rupees) as volume_inr
+  COUNT(*) as transactions
 FROM transactions
-WHERE status = 'released'
 GROUP BY 1 ORDER BY 1 DESC;
+
+-- Reputation drift check: counters vs source-of-truth transaction counts
+SELECT u.id, u.books_sold,
+       (SELECT count(*) FROM transactions t WHERE t.seller_id = u.id) AS actual_sold,
+       u.books_bought,
+       (SELECT count(*) FROM transactions t WHERE t.buyer_id = u.id) AS actual_bought
+FROM public.users u
+WHERE u.books_sold <> (SELECT count(*) FROM transactions t WHERE t.seller_id = u.id)
+   OR u.books_bought <> (SELECT count(*) FROM transactions t WHERE t.buyer_id = u.id);
 
 -- Impossible state check (should always return 0 rows)
 SELECT * FROM listings

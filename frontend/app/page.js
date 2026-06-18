@@ -46,15 +46,15 @@ const FAQS = [
   },
   {
     q: 'Is there any shipping or delivery?',
-    a: 'No. NextPrep is in-person meetup only. You meet the seller locally, inspect the book, notes or module before paying, and take it with you.',
+    a: 'No. NextPrep is in-person meetup only. You meet the seller locally, inspect the book, notes or module, settle payment directly, and take it with you.',
   },
   {
     q: 'What can I buy and sell on NextPrep?',
     a: 'Physical books, handwritten and self-made notes, original coaching modules (Allen, FIITJEE, PW, Aakash), formula sheets, test series and bundles for exams like JEE, NEET, UPSC and CA.',
   },
   {
-    q: 'How do payments stay safe?',
-    a: 'You only pay after meeting the seller and inspecting the material. Payment is made in-app and the seller is paid instantly once you confirm with their passkey.',
+    q: 'How does a transaction get confirmed?',
+    a: 'You meet the seller, inspect the material and settle payment directly. The seller then gives you an 8-digit code, which you enter in the app to confirm the exchange and rate the seller. NextPrep does not process payments.',
   },
 ]
 

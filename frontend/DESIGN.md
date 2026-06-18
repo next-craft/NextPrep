@@ -59,8 +59,8 @@ A subtle paper-grain overlay sits behind all content (`body::before`).
 `Navbar`, `Footer`, `Avatar` (initials fallback), `PriceBlock` (asking + struck-through
 original + "X% off"), `PasskeyDisplay` (shown-once moment), `SegmentedPasskeyInput`
 (8-digit), `EmptyState` / `ErrorState`, skeletons, and badges:
-`ConditionBadge`, `ListingTypeBadge`, `ExamCategoryChip`, `ListingStatusBadge`,
-`TransactionStatusBadge`.
+`ConditionBadge`, `ListingTypeBadge`, `ExamCategoryChip`, `ListingStatusBadge`.
+`RateSeller` provides the buyer's post-exchange star rating + optional review.
 
 Interactive primitives in `components/ui/` are Radix-backed (Shadcn-style):
 `dialog`, `sheet`, `tabs`, `dropdown-menu`, `sonner` (toasts). **Don't hand-edit beyond styling.**

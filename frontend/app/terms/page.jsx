@@ -56,15 +56,16 @@ export default function TermsPage() {
           <Section title="3. How transactions work">
             <p>Buyers and sellers communicate through in-app chat and arrange an in-person meetup. NextPrep does not
               offer shipping, courier, or delivery.</p>
-            <p>At handover, the buyer enters the seller&apos;s passkey to confirm the exchange, after which payment
-              is released to the seller via Razorpay. Prices are in Indian Rupees (INR) only.</p>
-            <p>Once a transaction is cancelled or refunded, it cannot be reopened.</p>
+            <p>At the meetup, the buyer inspects the material and the book is handed over. The seller then shares an
+              8-digit transaction code, which the buyer enters in the app to confirm the exchange. This passkey
+              confirmation is the sole record of a completed transaction. Prices are shown in Indian Rupees (INR) only.</p>
           </Section>
 
           <Section title="4. Payments">
-            <p>Payments are processed by Razorpay, subject to their terms. You are responsible for any taxes that
-              apply to your sales. NextPrep is not responsible for the quality, accuracy, or legality of items
-              listed by users.</p>
+            <p><strong>NextPrep does not process payments.</strong> Buyers and sellers settle payment directly
+              between themselves at the meetup. The platform never holds, transfers, or takes a cut of any money,
+              and is not responsible for the quality, accuracy, or legality of items listed by users. You are
+              responsible for any taxes that apply to your sales.</p>
           </Section>
 
           <Section title="5. Meetups &amp; safety">
@@ -73,7 +74,7 @@ export default function TermsPage() {
           </Section>
 
           <Section title="6. Conduct">
-            <p>Do not harass other users, post misleading listings, attempt to take communication or payment off the
+            <p>Do not harass other users, post misleading listings, attempt to take communication off the
               platform to evade these terms, or use NextPrep for anything unlawful.</p>
           </Section>
 
@@ -90,7 +91,7 @@ export default function TermsPage() {
           <Section title="9. Disclaimer &amp; liability">
             <p>NextPrep is provided &ldquo;as is.&rdquo; To the extent permitted by law, we are not liable for
               disputes between users, the condition of items exchanged, or losses arising from offline meetups or
-              payments.</p>
+              payments settled directly between users.</p>
           </Section>
 
           <Section title="10. Changes">

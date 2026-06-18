@@ -1,7 +1,7 @@
 # CLAUDE.md — Study Material Exchange India
 
 Single source of truth. Read before writing any code.
-Detail files: `.claude/docs/AUTH.md` | `.claude/docs/SCHEMA.md` | `.claude/docs/PAYMENT.md`
+Detail files: `.claude/docs/AUTH.md` | `.claude/docs/SCHEMA.md` | `.claude/docs/TRANSACTIONS.md`
 Specs: `.claude/specs/product/` | `.claude/specs/technical/` | `.claude/specs/infrastructure/` | `.claude/specs/decisions/`
 
 ---
@@ -12,8 +12,9 @@ India's peer-to-peer marketplace for exam books, notes, and coaching materials.
 Students buy and sell physical study material via in-person meetup — like OLX, but structured.
 
 **Exchange model:** In-person meetup only. No shipping. No courier. No delivery tracking.
+**Payments:** The platform does NOT process payments. Buyers and sellers settle money directly, offline, at the meetup. A buyer-entered 8-digit passkey is the sole record of a completed transaction.
 **Accounts:** One account per user. Same account for buying and selling.
-**Prices:** INR rupees only. No paise in DB or app logic. Paise only at Razorpay API boundary.
+**Prices:** INR rupees only, whole rupees. Prices are displayed only — never collected or transferred.
 **Market:** India only.
 
 **Allowed listings:** Physical books, handwritten notes, self-created notes, original coaching modules (Allen, FIITJEE, PW, Aakash), formula sheets, test series, bundles.
@@ -28,7 +29,7 @@ Students buy and sell physical study material via in-person meetup — like OLX,
 
 Two developers. No DevOps, no designer, no PM.
 - Dev 1: Frontend (Next.js 16, TanStack Query, Tailwind, Shadcn/ui, Cloudinary)
-- Dev 2: Backend (FastAPI, SQLAlchemy 2.0, Supabase Postgres, Redis, Razorpay, Resend)
+- Dev 2: Backend (FastAPI, SQLAlchemy 2.0, Supabase Postgres, Redis, Resend)
 
 Do not suggest architectures requiring a third person to maintain.
 
@@ -43,7 +44,7 @@ Do not suggest architectures requiring a third person to maintain.
 - **Data fetching:** SSR for public/SEO pages + TanStack Query v5 for client state, mutations, chat polling
 - **Styling:** Tailwind CSS v3 + Shadcn/ui
 - **Image upload:** Cloudinary upload widget (direct browser-to-Cloudinary)
-- **Payments:** Razorpay Payment Link (server-generated, buyer redirected)
+- **Payments:** None — no payment integration. Transactions are confirmed by passkey only.
 - **Deployment:** Vercel
 - **Dev URL:** `http://localhost:3000`
 
@@ -57,7 +58,7 @@ Do not suggest architectures requiring a third person to maintain.
 - **Cache:** Redis (Railway) — rate limiting, passkey attempts, notification cooldowns
 - **Jobs:** APScheduler inside FastAPI — do NOT introduce Celery
 - **Email:** Resend (free tier)
-- **Payments:** Razorpay SDK + Razorpay Route
+- **Payments:** None — no payment SDK, no payouts, no webhooks. The platform processes no money.
 - **Storage:** Cloudinary (images only)
 - **Logging:** Python `logging` module. No `print()`. See logging rules below.
 - **Deployment:** Railway
@@ -77,9 +78,9 @@ textbook-exchange/
 ├── .claude/
 │   ├── CLAUDE.md
 │   ├── docs/
-│   │   ├── AUTH.md        # verify_token, Supabase setup, DB trigger, passkey hashing
-│   │   ├── PAYMENT.md     # Full payment workflow, webhook handler, APScheduler
-│   │   └── SCHEMA.md      # Full table definitions, constraints, debug queries
+│   │   ├── AUTH.md          # verify_token, Supabase setup, DB trigger, passkey hashing
+│   │   ├── TRANSACTIONS.md   # Passkey verification, transaction completion, ratings, reputation
+│   │   └── SCHEMA.md         # Full table definitions, constraints, debug queries
 │   └── specs/
 │       ├── decisions/
 │       │   └── DECISIONS.md
@@ -184,11 +185,9 @@ GET    /conversations/{id}/messages   protected, polling
 POST   /conversations/{id}/messages   protected
 PATCH  /conversations/{id}/messages/read  protected
 
-POST   /payments/verify-passkey   protected
-POST   /payments/onboard          protected — Razorpay Route linked-account creation, returns KYC URL
-POST   /payments/onboard/complete protected — verifies KYC status, persists razorpay_account_id
-POST   /payments/webhook          no auth — Razorpay, verify signature
-GET    /transactions/{id}/status  protected, buyer-scoped — passkey/payment polling
+POST   /transactions/verify-passkey   protected — buyer enters 8-digit code; marks listing SOLD, records verified transaction
+GET    /transactions                  protected — caller's transactions as buyer and seller
+POST   /transactions/{id}/rating       protected, buyer only, once — 1-5 stars + optional review
 
 GET    /users/me                  protected
 PATCH  /users/me                  protected
@@ -234,17 +233,25 @@ B — Good (light use, minimal highlighting, pages intact)
 C — Acceptable (heavy use, highlighting, fully readable)
 ```
 
-### Transaction statuses
+### Transactions
 ```
-initiated  — passkey verified, payment link generated (15 min window)
-released   — payment confirmed, seller paid (terminal)
-cancelled  — abandoned or refunded (terminal)
+No statuses. A `transactions` row exists only when a buyer enters the correct passkey
+at the meetup — it IS the record of a completed, verified exchange (one row per sold
+listing). No pending/initiated/payment state. Verification is atomic: the listing is
+marked SOLD, books_sold/books_bought increment, and the buyer may then rate the seller.
+```
+
+### Reputation
+```
+books_sold     — seller's verified completed sales (== verified transactions)
+books_bought   — buyer's verified completed purchases
+seller_rating  — NUMERIC(3,2) average of 1-5 ratings, recomputed on each rating insert
+is_verified    — blue badge, auto-set TRUE once books_sold >= 10 (no longer OAuth-email based)
 ```
 
 ### Redis keys
 ```
-passkey_attempts:{listing_id}:{buyer_id}    integer, TTL 7 days
-abandoned_notified:{listing_id}             integer, TTL 6 hours
+passkey_attempts:{listing_id}:{buyer_id}    integer, TTL 7 days (3 attempts max)
 chat_rate:{conversation_id}:{sender_id}     integer, TTL 1 hour
 chat:{conversation_id}                      cached messages, TTL 30s
 report_rate:{reporter_id}                   integer, TTL 1 hour
@@ -265,7 +272,7 @@ report_rate:{reporter_id}                   integer, TTL 1 hour
 - All DB ops async — no sync SQLAlchemy in routes
 - Logic in `services/` — routers handle HTTP only
 - Parameterized queries only — never f-string SQL
-- Prices in whole rupees. Paise only at Razorpay API boundary (`amount_rupees * 100`)
+- Prices in whole rupees, display-only — the platform never collects or transfers money
 - `user["sub"]` is always the user UUID from JWT
 - `logging.getLogger(__name__)` at top of every module
 
@@ -273,9 +280,9 @@ report_rate:{reporter_id}                   integer, TTL 1 hour
 
 ## Logging rules
 
-**Log:** every request, every payment event, every JWT failure, every APScheduler run, every email send, every Redis failure.
+**Log:** every request, every transaction completion, every JWT failure, every APScheduler run, every email send, every Redis failure.
 
-**Never log:** passkey plaintext, JWT strings, Razorpay secrets, user PII beyond UUID.
+**Never log:** passkey plaintext, passkey hash, JWT strings, `PASSKEY_HMAC_SECRET`, user PII beyond UUID.
 
 ---
 
@@ -287,9 +294,6 @@ NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
 DATABASE_URL=postgresql+psycopg://user:pass@host:5432/db
 REDIS_URL=redis://default:pass@host:6379
-RAZORPAY_KEY_ID=rzp_live_xxx
-RAZORPAY_KEY_SECRET=xxx
-RAZORPAY_WEBHOOK_SECRET=xxx
 PASSKEY_HMAC_SECRET=<32+ random bytes hex>
 CLOUDINARY_CLOUD_NAME=xxx
 CLOUDINARY_API_KEY=xxx
@@ -307,25 +311,24 @@ NEXT_PUBLIC_API_URL=http://localhost:8000/v1
 API_URL=http://localhost:8000/v1
 ```
 
-**Hard rules:** `RAZORPAY_KEY_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `PASSKEY_HMAC_SECRET` — backend only, never exposed. Never commit `.env`.
+**Hard rules:** `SUPABASE_SERVICE_ROLE_KEY`, `PASSKEY_HMAC_SECRET` — backend only, never exposed. Never commit `.env`.
 
 ---
 
 ## Security rules (non-negotiable)
 
 1. Never expose seller contact info in any API response
-2. Always verify Razorpay webhook HMAC signature before processing
-3. Return 200 for unrecognised webhook events — never 4xx
-4. Supabase session in httpOnly cookies — never localStorage
-5. Validate ownership before every mutation: `listing.seller_id == user["sub"]`
-6. Image uploads direct to Cloudinary — never through FastAPI
-7. Parameterized queries only — never string-interpolate user input
-8. CORS: allow only `FRONTEND_URL` in production — never `*`
-9. `SUPABASE_SERVICE_ROLE_KEY` — background jobs only, never in user-facing request logic. Two approved exceptions, both limited to server-internal email resolution via `fetch_user_email` (needed because `public.users` has no email column — Supabase Auth owns identity): (a) the Razorpay webhook handler (HMAC-signature-authenticated, not user-facing); (b) the chat first-message seller notification, dispatched as a post-response `BackgroundTask` so the lookup never runs inside the request/response path. The service-role value is never logged, returned, or exposed to the client. See DECISIONS.md.
-10. `PASSKEY_HMAC_SECRET` — never logged, never in responses
-11. `hmac.compare_digest` for all hash comparisons — never `==`
-12. No reopening cancelled transactions — late webhooks always refund
-13. Hide listing immediately on piracy/copyright report
+2. Supabase session in httpOnly cookies — never localStorage
+3. Validate ownership before every mutation: `listing.seller_id == user["sub"]`
+4. Image uploads direct to Cloudinary — never through FastAPI
+5. Parameterized queries only — never string-interpolate user input
+6. CORS: allow only `FRONTEND_URL` in production — never `*`
+7. `SUPABASE_SERVICE_ROLE_KEY` — background jobs only, never in user-facing request logic. Approved exceptions are limited to server-internal email resolution via `fetch_user_email` (needed because `public.users` has no email column — Supabase Auth owns identity), each dispatched as a post-response `BackgroundTask` so the lookup never runs inside the request/response path: (a) the chat first-message seller notification; (b) the sale-complete notification after a passkey is verified. The service-role value is never logged, returned, or exposed to the client. See DECISIONS.md.
+8. `PASSKEY_HMAC_SECRET` — never logged, never in responses
+9. `hmac.compare_digest` for all hash comparisons — never `==`
+10. Listing completion is atomic and one-way: `UPDATE ... WHERE is_available = TRUE` selects the single winning buyer; a sold listing can never be reopened
+11. Only the buyer can rate, only after a verified passkey, once per transaction (DB-enforced)
+12. Hide listing immediately on piracy/copyright report
 
 ---
 
@@ -394,6 +397,6 @@ Use real Supabase project for local auth — JWKS endpoint must be reachable.
 
 ## Before adding any feature
 
-1. In v1 scope? 2. New dependency? 3. Touches payments? 4. Exposes PII? 5. One person, one day?
+1. In v1 scope? 2. New dependency? 3. Touches the passkey/transaction flow? 4. Exposes PII? 5. One person, one day?
 
 If any answer is concerning — discuss first.
