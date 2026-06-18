@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Receipt, Star } from 'lucide-react'
 import { useMyTransactions } from '@/lib/queries'
 import RateSeller from '@/components/shared/rate-seller'
+import Disclosure from '@/components/shared/disclosure'
 import { EmptyState } from '@/components/shared/states'
 import { Stagger, StaggerItem } from '@/components/shared/motion'
 import { formatDate } from '@/lib/utils'
@@ -25,38 +26,57 @@ export default function TransactionsTab() {
     )
   }
 
-  return (
-    <Stagger gap={0.05} className="space-y-3">
-      {txns.map((t) => (
-        <StaggerItem key={t.id} className="card p-4">
-          <div className="flex items-center gap-4">
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium">{t.listing_title || 'Listing removed'}</p>
-              <p className="mt-0.5 text-xs capitalize text-muted-foreground">
-                {t.role === 'buyer' ? 'Bought' : 'Sold'} · {formatDate(t.created_at)}
-              </p>
+  const buying = txns.filter((t) => t.role === 'buyer')
+  const selling = txns.filter((t) => t.role === 'seller')
+
+  const renderGroup = (rows, emptyText) => {
+    if (!rows.length) {
+      return <p className="px-1 py-2 text-sm text-muted-foreground">{emptyText}</p>
+    }
+    return (
+      <Stagger gap={0.05} className="space-y-3">
+        {rows.map((t) => (
+          <StaggerItem key={t.id} className="card p-4">
+            <div className="flex items-center gap-4">
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">{t.listing_title || 'Listing removed'}</p>
+                <p className="mt-0.5 text-xs capitalize text-muted-foreground">
+                  {t.role === 'buyer' ? 'Bought' : 'Sold'} · {formatDate(t.created_at)}
+                </p>
+              </div>
+              {t.can_rate && rating !== t.id && (
+                <button
+                  type="button"
+                  onClick={() => setRating(t.id)}
+                  className="btn-secondary shrink-0"
+                >
+                  <Star className="h-4 w-4" /> Rate seller
+                </button>
+              )}
             </div>
-            {t.can_rate && rating !== t.id && (
-              <button
-                type="button"
-                onClick={() => setRating(t.id)}
-                className="btn-secondary shrink-0"
-              >
-                <Star className="h-4 w-4" /> Rate seller
-              </button>
+            {rating === t.id && (
+              <div className="mt-4 border-t border-border pt-4">
+                <RateSeller
+                  transactionId={t.id}
+                  sellerName={t.seller_name}
+                  onRated={() => setRating(null)}
+                />
+              </div>
             )}
-          </div>
-          {rating === t.id && (
-            <div className="mt-4 border-t border-border pt-4">
-              <RateSeller
-                transactionId={t.id}
-                sellerName={t.seller_name}
-                onRated={() => setRating(null)}
-              />
-            </div>
-          )}
-        </StaggerItem>
-      ))}
-    </Stagger>
+          </StaggerItem>
+        ))}
+      </Stagger>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      <Disclosure title="Buying" count={buying.length}>
+        {renderGroup(buying, "Books you've bought will appear here.")}
+      </Disclosure>
+      <Disclosure title="Selling" count={selling.length}>
+        {renderGroup(selling, "Books you've sold will appear here.")}
+      </Disclosure>
+    </div>
   )
 }

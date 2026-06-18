@@ -3,10 +3,11 @@ import { use, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence } from 'framer-motion'
-import { ArrowLeft, BookOpen, Send, Loader2 } from 'lucide-react'
+import { ArrowLeft, Send, Loader2 } from 'lucide-react'
 import api from '@/lib/api'
 import { useMe } from '@/lib/queries'
 import { cn, formatPrice, formatRelativeTime, listingStatus } from '@/lib/utils'
+import Avatar from '@/components/shared/avatar'
 import BuyNowButton from '@/components/listings/BuyNowButton'
 import { m, useReducedMotion } from '@/components/shared/motion'
 import { EASE, SPRING } from '@/lib/motion'
@@ -50,6 +51,22 @@ export default function ChatPage({ params }) {
     enabled: !!listingId,
     staleTime: 30_000,
   })
+
+  // The other participant in this chat (the seller if you're the buyer, else the buyer).
+  const otherUserId =
+    conversation && me?.id
+      ? conversation.buyer_id === me.id
+        ? conversation.seller_id
+        : conversation.buyer_id
+      : null
+  // API: GET /users/{id} — public profile, for the counterpart's name + avatar.
+  const { data: otherUser } = useQuery({
+    queryKey: ['user', otherUserId],
+    queryFn: async () => (await api.get(`/users/${otherUserId}`)).data,
+    enabled: !!otherUserId,
+    staleTime: 60_000,
+  })
+  const otherFirstName = otherUser?.full_name?.trim().split(/\s+/)[0]
 
   // API: GET /conversations/{id}/messages — poll every 4s
   const { data: messages = [] } = useQuery({
@@ -106,31 +123,25 @@ export default function ChatPage({ params }) {
           <Link href="/dashboard?tab=buying" className="btn-ghost h-9 w-9 px-0" aria-label="Back">
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <Link
-            href={listingId ? `/listings/${listingId}` : '#'}
-            className="flex min-w-0 flex-1 items-center gap-3"
-          >
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md bg-papaya_whip-700 text-light_bronze-500">
-              {listing?.images?.[0] ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={listing.images[0]} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <BookOpen className="h-5 w-5" />
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium leading-tight">
-                {listing ? listing.title : conversation === null ? 'Listing removed' : 'Loading…'}
-              </p>
+          <Avatar src={otherUser?.avatar_url} name={otherUser?.full_name} size={42} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-medium leading-tight">
+              {otherFirstName || (conversation === null ? 'Conversation' : 'Loading…')}
+            </p>
+            <Link
+              href={listingId ? `/listings/${listingId}` : '#'}
+              className="block truncate text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {listing ? listing.title : conversation === null ? 'Listing removed' : 'Loading…'}
               {listing && (
-                <p className="text-sm text-muted-foreground">
-                  {formatPrice(listing.asking_price)}
+                <>
+                  {` · ${formatPrice(listing.asking_price)}`}
                   {status === 'sold' && ' · Sold'}
                   {status === 'paused' && ' · Unavailable'}
-                </p>
+                </>
               )}
-            </div>
-          </Link>
+            </Link>
+          </div>
           {isBuyer && available && (
             <div className="shrink-0">
               <BuyNowButton listingId={listingId} className="h-10 px-4" />
@@ -194,8 +205,8 @@ export default function ChatPage({ params }) {
         </AnimatePresence>
       </div>
 
-      {/* Composer — fixed below the thread */}
-      <div className="shrink-0 border-t border-border bg-cornsilk/90 px-4 py-3 backdrop-blur">
+      {/* Composer — fixed below the thread, lifted a little off the bottom edge */}
+      <div className="mb-4 shrink-0 border-t border-border bg-cornsilk/90 px-4 py-3 backdrop-blur">
         <AnimatePresence>
           {sendError && (
             <m.p
