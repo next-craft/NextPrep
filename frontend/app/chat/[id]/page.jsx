@@ -8,6 +8,7 @@ import api from '@/lib/api'
 import { useMe } from '@/lib/queries'
 import { cn, formatPrice, formatRelativeTime, listingStatus } from '@/lib/utils'
 import Avatar from '@/components/shared/avatar'
+import StatusPill from '@/components/shared/status-pill'
 import BuyNowButton from '@/components/listings/BuyNowButton'
 import { m, useReducedMotion } from '@/components/shared/motion'
 import { EASE, SPRING } from '@/lib/motion'
@@ -133,19 +134,15 @@ export default function ChatPage({ params }) {
               className="block truncate text-xs text-muted-foreground transition-colors hover:text-foreground"
             >
               {listing ? listing.title : conversation === null ? 'Listing removed' : 'Loading…'}
-              {listing && (
-                <>
-                  {` · ${formatPrice(listing.asking_price)}`}
-                  {status === 'sold' && ' · Sold'}
-                  {status === 'paused' && ' · Unavailable'}
-                </>
-              )}
+              {listing && ` · ${formatPrice(listing.asking_price)}`}
             </Link>
           </div>
-          {isBuyer && available && (
+          {isBuyer && available ? (
             <div className="shrink-0">
               <BuyNowButton listingId={listingId} className="h-10 px-4" />
             </div>
+          ) : (
+            status && <StatusPill status={status} className="shrink-0" />
           )}
         </m.div>
       </div>

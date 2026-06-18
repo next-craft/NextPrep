@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Receipt, Star } from 'lucide-react'
 import { useMyTransactions } from '@/lib/queries'
 import RateSeller from '@/components/shared/rate-seller'
+import { VerifiedTag } from '@/components/shared/status-pill'
 import Disclosure from '@/components/shared/disclosure'
 import { EmptyState } from '@/components/shared/states'
 import { Stagger, StaggerItem } from '@/components/shared/motion'
@@ -40,9 +41,10 @@ export default function TransactionsTab() {
             <div className="flex items-center gap-4">
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{t.listing_title || 'Listing removed'}</p>
-                <p className="mt-0.5 text-xs capitalize text-muted-foreground">
-                  {t.role === 'buyer' ? 'Bought' : 'Sold'} · {formatDate(t.created_at)}
-                </p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                  <VerifiedTag role={t.role} />
+                  <span className="text-xs text-muted-foreground">{formatDate(t.created_at)}</span>
+                </div>
               </div>
               {t.can_rate && rating !== t.id && (
                 <button

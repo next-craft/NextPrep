@@ -39,8 +39,9 @@ Two layers, both in `tailwind.config.js`:
 | `border` / `input` | `#e7d4bf` | warm dividers / field borders |
 | `ring` | light_bronze-400 `#c58341` | focus ring |
 
-**Status tints** (warm, AA-checked) live as inline classes in `components/shared/badges.jsx`:
-success `#e9f0dd/#3f6733`, warning `#fbf1d6/#8a5e12`, danger `#f7e6e0/#8f3322`.
+**Status tints** (warm, AA-checked) live as inline classes in `components/shared/badges.jsx`
+and `components/shared/status-pill.jsx`:
+success `#eaf1de/#3f6733`, warning `#fbf1d6/#8a5e12`, danger `#f7e6e0/#8f3322`.
 
 ## Component utility classes (`globals.css` `@layer components`)
 
@@ -59,8 +60,18 @@ A subtle paper-grain overlay sits behind all content (`body::before`).
 `Navbar`, `Footer`, `Avatar` (initials fallback), `PriceBlock` (asking + struck-through
 original + "X% off"), `PasskeyDisplay` (shown-once moment), `SegmentedPasskeyInput`
 (8-digit), `EmptyState` / `ErrorState`, skeletons, and badges:
-`ConditionBadge`, `ListingTypeBadge`, `ExamCategoryChip`, `ListingStatusBadge`.
+`ConditionBadge`, `ListingTypeBadge`, `ExamCategoryChip`, `ListingStatusBadge` (static
+pill, server-safe).
 `RateSeller` provides the buyer's post-exchange star rating + optional review.
+
+`status-pill.jsx` (client) holds the **animated** status markers used in the dashboard and
+chat — prefer these over `ListingStatusBadge` in client components:
+- `StatusPill` — availability with motion that mirrors meaning: **Available** = soft-green
+  pill with a breathing radar dot (live listing), **Sold** = terracotta pill with a check
+  that stamps in, **Paused** = amber pill with a pause glyph. Mount pop + radar ping are
+  gated on `useReducedMotion()`. Used in `ConversationList`, the chat header, and `SellingTab`.
+- `VerifiedTag` — directional completed-transaction marker (`Purchased ↙` / `Sold ↗` +
+  verified check), used in `TransactionsTab`.
 
 Interactive primitives in `components/ui/` are Radix-backed (Shadcn-style):
 `dialog`, `sheet`, `tabs`, `dropdown-menu`, `sonner` (toasts). **Don't hand-edit beyond styling.**
