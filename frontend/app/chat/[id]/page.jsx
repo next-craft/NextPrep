@@ -19,7 +19,17 @@ export default function ChatPage({ params }) {
   const { data: me } = useMe()
   const reduced = useReducedMotion()
   const [body, setBody] = useState('')
-  const bottomRef = useRef(null)
+  // The thread is its own scroll container (the composer stays put, WhatsApp-style).
+  const threadRef = useRef(null)
+  // Whether the user is parked at the bottom — only then do new messages auto-scroll,
+  // so we never yank them away while they're reading older messages.
+  const atBottomRef = useRef(true)
+
+  const handleThreadScroll = () => {
+    const el = threadRef.current
+    if (!el) return
+    atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+  }
 
   // No GET /conversations/{id}; derive meta (listing_id, buyer/seller) from the list.
   // TODO(backend): a single-conversation endpoint would avoid this.
@@ -64,13 +74,18 @@ export default function ChatPage({ params }) {
     api.patch(`/conversations/${conversationId}/messages/read`).catch(() => {})
   }, [conversationId, unreadCount])
 
+  // Auto-scroll the thread (not the page) to the newest message — but only when the
+  // user is already at the bottom. Scrolls the inner container, so the composer below
+  // never moves.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = threadRef.current
+    if (el && atBottomRef.current) el.scrollTop = el.scrollHeight
   }, [messages])
 
   const isBuyer = conversation && me?.id && conversation.buyer_id === me.id
   const status = listing ? listingStatus(listing) : null
   const available = status === 'active'
+  const closed = status === 'sold' // listing sold -> conversation is closed
 
   const sendError = send.isError
     ? send.error?.response?.status === 429
@@ -79,9 +94,9 @@ export default function ChatPage({ params }) {
     : null
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-2xl flex-col">
-      {/* Pinned listing summary */}
-      <div className="sticky top-16 z-10 border-b border-border bg-cornsilk/90 backdrop-blur">
+    <div className="mx-auto flex h-[calc(100dvh-4rem)] max-w-2xl flex-col overflow-hidden">
+      {/* Pinned listing summary — fixed; only the thread between header and composer scrolls */}
+      <div className="shrink-0 border-b border-border bg-cornsilk/90 backdrop-blur">
         <m.div
           initial={reduced ? { opacity: 0 } : { opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -124,8 +139,12 @@ export default function ChatPage({ params }) {
         </m.div>
       </div>
 
-      {/* Thread */}
-      <div className="flex-1 space-y-2 px-4 py-5">
+      {/* Thread — the only scroll container */}
+      <div
+        ref={threadRef}
+        onScroll={handleThreadScroll}
+        className="flex-1 space-y-2 overflow-y-auto px-4 py-5"
+      >
         {messages.length === 0 && (
           <p className="py-10 text-center text-sm text-muted-foreground">
             No messages yet. Say hello and arrange a meetup. Never share contact details or your
@@ -173,11 +192,10 @@ export default function ChatPage({ params }) {
             </m.div>
           ))}
         </AnimatePresence>
-        <div ref={bottomRef} />
       </div>
 
-      {/* Composer */}
-      <div className="sticky bottom-0 border-t border-border bg-cornsilk/90 px-4 py-3 backdrop-blur">
+      {/* Composer — fixed below the thread */}
+      <div className="shrink-0 border-t border-border bg-cornsilk/90 px-4 py-3 backdrop-blur">
         <AnimatePresence>
           {sendError && (
             <m.p
@@ -192,35 +210,43 @@ export default function ChatPage({ params }) {
             </m.p>
           )}
         </AnimatePresence>
-        <div className="flex items-end gap-2">
-          <textarea
-            className="textarea max-h-32 min-h-[2.75rem] flex-1 resize-none py-2.5"
-            placeholder="Type a message…"
-            rows={1}
-            value={body}
-            maxLength={2000}
-            onChange={(e) => setBody(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                if (body.trim() && !send.isPending) send.mutate()
-              }
-            }}
-          />
-          <m.button
-            type="button"
-            onClick={() => send.mutate()}
-            disabled={!body.trim() || send.isPending}
-            whileTap={{ scale: 0.9 }}
-            transition={SPRING}
-            className="btn-primary h-11 w-11 shrink-0 px-0"
-            aria-label="Send message"
-          >
-            {send.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-          </m.button>
-        </div>
-        {body.length > 1800 && (
-          <p className="mt-1 text-right text-[11px] text-muted-foreground">{body.length}/2000</p>
+        {closed ? (
+          <p className="py-1.5 text-center text-sm text-muted-foreground">
+            This listing has been sold — this conversation is now closed.
+          </p>
+        ) : (
+          <>
+            <div className="flex items-end gap-2">
+              <textarea
+                className="textarea max-h-32 min-h-[2.75rem] flex-1 resize-none py-2.5"
+                placeholder="Type a message…"
+                rows={1}
+                value={body}
+                maxLength={2000}
+                onChange={(e) => setBody(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    if (body.trim() && !send.isPending) send.mutate()
+                  }
+                }}
+              />
+              <m.button
+                type="button"
+                onClick={() => send.mutate()}
+                disabled={!body.trim() || send.isPending}
+                whileTap={{ scale: 0.9 }}
+                transition={SPRING}
+                className="btn-primary h-11 w-11 shrink-0 px-0"
+                aria-label="Send message"
+              >
+                {send.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+              </m.button>
+            </div>
+            {body.length > 1800 && (
+              <p className="mt-1 text-right text-[11px] text-muted-foreground">{body.length}/2000</p>
+            )}
+          </>
         )}
       </div>
     </div>

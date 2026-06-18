@@ -166,6 +166,12 @@ async def send_message(
     (at most once per conversation, via an atomic flag flip)."""
     conversation = await _assert_participant(db, conversation_id, sender_id)
 
+    # Once the listing has sold, the conversation is closed — neither party can message.
+    if conversation.listing_id is not None:
+        listing = await db.get(Listing, conversation.listing_id)
+        if listing is not None and listing.sold_at is not None:
+            raise HTTPException(409, "This listing has been sold. The conversation is closed.")
+
     rate_key = _rate_key(conversation_id, sender_id)
     count = await _safe_redis_get(redis, rate_key)
     if count and int(count) >= RATE_LIMIT_PER_HOUR:
