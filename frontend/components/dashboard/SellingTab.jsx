@@ -17,7 +17,8 @@ import { m } from '@/components/shared/motion'
 import { EASE, SPRING } from '@/lib/motion'
 import api from '@/lib/api'
 import { formatPrice, listingStatus } from '@/lib/utils'
-import { ConditionBadge, ListingStatusBadge, ListingTypeBadge } from '@/components/shared/badges'
+import { ConditionBadge, ListingTypeBadge } from '@/components/shared/badges'
+import StatusPill from '@/components/shared/status-pill'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -151,7 +152,7 @@ export default function SellingTab() {
                         </Link>
                         <p className="mt-0.5 text-sm font-semibold">{formatPrice(l.asking_price)}</p>
                         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                          <ListingStatusBadge status={key} />
+                          <StatusPill status={key} />
                           <ConditionBadge code={l.condition} showLabel={false} />
                           <ListingTypeBadge type={l.listing_type} />
                         </div>

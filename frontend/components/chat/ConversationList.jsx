@@ -4,14 +4,9 @@ import { AnimatePresence } from 'framer-motion'
 import { BookOpen, MessageCircle } from 'lucide-react'
 import { cn, formatRelativeTime, listingStatus } from '@/lib/utils'
 import { EmptyState } from '@/components/shared/states'
+import StatusPill from '@/components/shared/status-pill'
 import { m } from '@/components/shared/motion'
 import { EASE, SPRING } from '@/lib/motion'
-
-const STATUS = {
-  active: { label: 'Available', cls: 'border-[#bcd0a3] bg-[#e9f0dd] text-[#3f6733]' },
-  paused: { label: 'Paused', cls: 'border-[#ecd6a0] bg-[#fbf1d6] text-[#8a5e12]' },
-  sold: { label: 'Sold', cls: 'border-[#e4b3a6] bg-[#f7e6e0] text-[#8f3322]' },
-}
 
 /** Renders enriched conversations (listing summary + last message + unread). */
 export default function ConversationList({
@@ -84,7 +79,7 @@ export default function ConversationList({
                   <span className="relative">{c.unreadCount}</span>
                 </m.span>
               )}
-              {status && <span className={cn('badge', STATUS[status].cls)}>{STATUS[status].label}</span>}
+              {status && <StatusPill status={status} />}
               {isBuyer && status === 'active' && (
                 <Link href={`/listings/${c.listing_id}`} className="btn-primary h-8 px-3 text-xs">
                   Buy Now
