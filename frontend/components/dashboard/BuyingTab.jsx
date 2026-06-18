@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { MessageCircle } from 'lucide-react'
 import { useEnrichedConversations } from '@/lib/queries'
 import ConversationList from '@/components/chat/ConversationList'
+import Disclosure from '@/components/shared/disclosure'
 import { RowSkeleton } from '@/components/shared/skeletons'
 import { EmptyState, ErrorState } from '@/components/shared/states'
 
@@ -26,9 +27,6 @@ export default function BuyingTab({ meId }) {
     return <ErrorState title="Couldn't load your conversations" description="Please try again in a moment." />
   }
 
-  // All conversations — both where you're the buyer and where a buyer has messaged
-  // you about your listing (seller role). ConversationList renders each with the
-  // right context (e.g. the "Buy Now" shortcut only on buyer-side active listings).
   const conversations = data || []
 
   if (!conversations.length) {
@@ -46,5 +44,29 @@ export default function BuyingTab({ meId }) {
     )
   }
 
-  return <ConversationList conversations={conversations} meId={meId} />
+  // Split by role so buying chats (you messaged a seller) and selling chats
+  // (a buyer messaged you about your listing) live under separate dropdowns.
+  const buying = conversations.filter((c) => c.buyer_id === meId)
+  const selling = conversations.filter((c) => c.seller_id === meId)
+
+  return (
+    <div className="space-y-5">
+      <Disclosure title="Buying" count={buying.length}>
+        <ConversationList
+          conversations={buying}
+          meId={meId}
+          emptyTitle="No buying conversations"
+          emptyDescription="Chats with sellers you've messaged will appear here."
+        />
+      </Disclosure>
+      <Disclosure title="Selling" count={selling.length}>
+        <ConversationList
+          conversations={selling}
+          meId={meId}
+          emptyTitle="No selling conversations"
+          emptyDescription="Chats from buyers about your listings will appear here."
+        />
+      </Disclosure>
+    </div>
+  )
 }
