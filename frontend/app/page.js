@@ -133,8 +133,8 @@ export default async function Home() {
       </section>
 
       {/* ── Trust strip ────────────────────────────────────────────────── */}
-      <section>
-        <Stagger inView gap={0.1} className="container grid gap-6 py-6 sm:grid-cols-3">
+      <section className="container py-10">
+        <Stagger inView gap={0.1} className="glass grid gap-6 p-6 sm:grid-cols-3 sm:gap-8 sm:p-8">
           {[
             { icon: MapPin, t: 'In-person meetup', d: 'Meet locally — no shipping, no courier.' },
             { icon: KeyRound, t: 'Passkey-verified', d: 'Confirm only after you inspect the material.' },
@@ -202,8 +202,8 @@ export default async function Home() {
       )}
 
       {/* ── Browse by exam ─────────────────────────────────────────────── */}
-      <section>
-        <div className="container py-14">
+      <section className="container py-10">
+        <div className="glass p-6 sm:p-8">
           <Reveal inView as="h2" className="font-display text-2xl font-semibold">
             Browse by exam
           </Reveal>

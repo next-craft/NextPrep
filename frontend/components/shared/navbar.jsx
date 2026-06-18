@@ -99,7 +99,7 @@ export default function Navbar() {
 
         <Link
           href="/listings"
-          className="ml-3 hidden flex-1 items-center gap-2 rounded-xl border border-white/40 bg-card/55 px-3.5 py-2 text-sm text-muted-foreground shadow-warm backdrop-blur-sm transition-colors hover:border-light_bronze-500 hover:bg-card/70 sm:flex sm:max-w-md"
+          className="ml-3 hidden flex-1 items-center gap-2 rounded-xl border border-light_bronze-600 bg-card/90 px-3.5 py-2 text-sm text-muted-foreground shadow-warm backdrop-blur-md transition-all hover:border-light_bronze-400 hover:bg-card hover:shadow-warm-lg sm:flex sm:max-w-md"
         >
           <Search className="h-4 w-4 text-primary" />
           Search books, notes &amp; modules…
