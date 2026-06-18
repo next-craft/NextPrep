@@ -133,7 +133,7 @@ export default async function Home() {
       </section>
 
       {/* ── Trust strip ────────────────────────────────────────────────── */}
-      <section className="border-y border-border bg-papaya_whip-800">
+      <section>
         <Stagger inView gap={0.1} className="container grid gap-6 py-6 sm:grid-cols-3">
           {[
             { icon: MapPin, t: 'In-person meetup', d: 'Meet locally — no shipping, no courier.' },
@@ -202,7 +202,7 @@ export default async function Home() {
       )}
 
       {/* ── Browse by exam ─────────────────────────────────────────────── */}
-      <section className="border-t border-border bg-papaya_whip-800">
+      <section>
         <div className="container py-14">
           <Reveal inView as="h2" className="font-display text-2xl font-semibold">
             Browse by exam

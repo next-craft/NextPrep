@@ -1,26 +1,28 @@
 'use client'
 
 /* ──────────────────────────────────────────────────────────────────────
-   AuthAtmosphere — the living background for the sign-in "Reading Room".
+   Atmosphere — the single, canonical living background for NextPrep.
 
-   Layers, back to front:
+   This is the exact background used on /login, now shared site-wide so every
+   page sits on the same warm aurora. Layers, back to front:
      1. base wash        — warm cornsilk → papaya vertical gradient
      2. aurora blobs     — 4 large blurred radial glows, slow infinite drift
      3. light sweep      — a soft diagonal highlight that travels across
      4. particle field   — 16 deterministic motes that rise + twinkle
      5. grid + vignette  — faint engraved grid, edge darkening for depth
 
-   Motion rules:
-     • Only transform / opacity animate (GPU-friendly, no layout thrash).
-     • Pointer parallax comes in via `px` / `py` motion values from the page;
-       when reduced-motion is on the page leaves them at 0, so the
-       useTransform outputs collapse to 0 here — no special-casing needed.
-     • Infinite drift / sweep / twinkle are gated off under reduced-motion.
-   Decorative only → aria-hidden, pointer-events: none.
+   Self-contained: it tracks the pointer itself (no parent plumbing) and
+   applies a subtle parallax. Only transform / opacity animate. Reduced-motion
+   disables the pointer listener and all infinite loops. Decorative only.
+
+   Fixed at z-index -10 so it sits in front of the body background but behind
+   the body grain (-1) and all content; scrolling content drifts over it.
    ────────────────────────────────────────────────────────────────────── */
 
+import { useEffect } from 'react'
 import { m, useReducedMotion } from '@/components/shared/motion'
-import { useTransform } from 'framer-motion'
+import { useMotionValue, useSpring, useTransform } from 'framer-motion'
+import { SPRING_SOFT } from '@/lib/motion'
 
 // 16 fixed motes — deterministic so SSR markup matches the client (no hydration drift)
 const PARTICLES = [
@@ -53,21 +55,33 @@ function Blob({ className, gradient, animate, transition }) {
   )
 }
 
-export default function AuthAtmosphere({ px, py }) {
+export default function Atmosphere() {
   const reduced = useReducedMotion()
 
-  // Parallax: blobs drift opposite the cursor (far layer, subtle ±20px)
+  // Self-contained pointer parallax. Stays at 0 (no listener) under reduced motion.
+  const rawX = useMotionValue(0)
+  const rawY = useMotionValue(0)
+  const px = useSpring(rawX, SPRING_SOFT)
+  const py = useSpring(rawY, SPRING_SOFT)
+
+  useEffect(() => {
+    if (reduced) return
+    const onMove = (e) => {
+      rawX.set(e.clientX / window.innerWidth - 0.5)
+      rawY.set(e.clientY / window.innerHeight - 0.5)
+    }
+    window.addEventListener('pointermove', onMove, { passive: true })
+    return () => window.removeEventListener('pointermove', onMove)
+  }, [reduced, rawX, rawY])
+
+  // Layered depth: blobs drift opposite the cursor, particles ride a touch more.
   const blobX = useTransform(px, [-0.5, 0.5], [22, -22])
   const blobY = useTransform(py, [-0.5, 0.5], [22, -22])
-  // Particles ride slightly more (near layer, ±36px) for depth separation
   const dotX = useTransform(px, [-0.5, 0.5], [-36, 36])
   const dotY = useTransform(py, [-0.5, 0.5], [-36, 36])
 
-  const drift = (kf, dur) =>
-    reduced ? undefined : { ...kf, transition: { duration: dur, repeat: Infinity, ease: 'easeInOut' } }
-
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
       {/* 1 · base wash */}
       <div className="absolute inset-0 bg-gradient-to-b from-cornsilk via-cornsilk to-papaya_whip" />
 
@@ -76,25 +90,25 @@ export default function AuthAtmosphere({ px, py }) {
         <Blob
           className="-left-[12%] -top-[18%] h-[60vh] w-[60vh]"
           gradient="radial-gradient(circle at 30% 30%, rgba(197,131,65,0.55), rgba(197,131,65,0) 68%)"
-          animate={drift({ x: [0, 36, -12, 0], y: [0, -24, 16, 0], scale: [1, 1.08, 0.96, 1] })}
+          animate={reduced ? undefined : { x: [0, 36, -12, 0], y: [0, -24, 16, 0], scale: [1, 1.08, 0.96, 1] }}
           transition={reduced ? undefined : { duration: 26, repeat: Infinity, ease: 'easeInOut' }}
         />
         <Blob
           className="-right-[14%] top-[6%] h-[58vh] w-[58vh]"
           gradient="radial-gradient(circle at 60% 40%, rgba(172,187,123,0.5), rgba(172,187,123,0) 70%)"
-          animate={drift({ x: [0, -30, 14, 0], y: [0, 20, -14, 0], scale: [1, 0.94, 1.1, 1] })}
+          animate={reduced ? undefined : { x: [0, -30, 14, 0], y: [0, 20, -14, 0], scale: [1, 0.94, 1.1, 1] }}
           transition={reduced ? undefined : { duration: 30, repeat: Infinity, ease: 'easeInOut' }}
         />
         <Blob
           className="bottom-[-20%] left-[24%] h-[62vh] w-[62vh]"
           gradient="radial-gradient(circle at 50% 50%, rgba(242,208,121,0.45), rgba(242,208,121,0) 72%)"
-          animate={drift({ x: [0, 22, -18, 0], y: [0, -16, 22, 0], scale: [1, 1.06, 0.92, 1] })}
+          animate={reduced ? undefined : { x: [0, 22, -18, 0], y: [0, -16, 22, 0], scale: [1, 1.06, 0.92, 1] }}
           transition={reduced ? undefined : { duration: 34, repeat: Infinity, ease: 'easeInOut' }}
         />
         <Blob
           className="bottom-[2%] right-[18%] h-[42vh] w-[42vh]"
           gradient="radial-gradient(circle at 50% 50%, rgba(217,139,106,0.32), rgba(217,139,106,0) 70%)"
-          animate={drift({ x: [0, -18, 16, 0], y: [0, 18, -12, 0], scale: [1, 1.1, 0.95, 1] })}
+          animate={reduced ? undefined : { x: [0, -18, 16, 0], y: [0, 18, -12, 0], scale: [1, 1.1, 0.95, 1] }}
           transition={reduced ? undefined : { duration: 28, repeat: Infinity, ease: 'easeInOut' }}
         />
       </m.div>
@@ -127,15 +141,9 @@ export default function AuthAtmosphere({ px, py }) {
               opacity: 0.4,
               boxShadow: '0 0 8px rgba(150,98,46,0.5)',
             }}
-            animate={
-              reduced
-                ? { opacity: 0.25 }
-                : { y: [0, -26, 0], opacity: [0.15, 0.6, 0.15] }
-            }
+            animate={reduced ? { opacity: 0.25 } : { y: [0, -26, 0], opacity: [0.15, 0.6, 0.15] }}
             transition={
-              reduced
-                ? undefined
-                : { duration: p.dur, repeat: Infinity, ease: 'easeInOut', delay: p.delay }
+              reduced ? undefined : { duration: p.dur, repeat: Infinity, ease: 'easeInOut', delay: p.delay }
             }
           />
         ))}
@@ -155,8 +163,7 @@ export default function AuthAtmosphere({ px, py }) {
       <div
         className="absolute inset-0"
         style={{
-          background:
-            'radial-gradient(ellipse at center, transparent 55%, rgba(50,33,15,0.10) 100%)',
+          background: 'radial-gradient(ellipse at center, transparent 55%, rgba(50,33,15,0.10) 100%)',
         }}
       />
     </div>

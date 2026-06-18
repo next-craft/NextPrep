@@ -78,22 +78,30 @@ export default function Navbar() {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: DURATION.base, ease: EASE.warm }}
       className={cn(
-        'sticky top-0 z-40 border-b backdrop-blur transition-[background-color,box-shadow,border-color] duration-300',
+        'sticky top-0 z-40 transition-[background-color,box-shadow,border-color] duration-300',
+        // At the top: transparent, like the login navbar — only a faint scrim
+        // (below) carries the wordmark over the aurora. Once scrolled, a
+        // frosted fill fades in so content stays legible beneath it.
         scrolled
-          ? 'border-border bg-cornsilk/95 shadow-warm supports-[backdrop-filter]:bg-cornsilk/80'
-          : 'border-transparent bg-cornsilk/85 supports-[backdrop-filter]:bg-cornsilk/70'
+          ? 'border-b border-white/40 bg-cornsilk/55 shadow-warm-lg backdrop-blur-xl'
+          : 'border-b border-transparent bg-transparent'
       )}
     >
-      <div className="container flex h-16 items-center gap-3">
+      {/* faint top scrim — matches AuthNavbar, keeps the bar reading over the aurora */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-cornsilk/70 to-transparent"
+      />
+      <div className="container relative flex h-16 items-center gap-3">
         <Link href="/" className="font-display text-xl font-semibold tracking-tight">
           Next<span className="text-primary">Prep</span>
         </Link>
 
         <Link
           href="/listings"
-          className="ml-3 hidden flex-1 items-center gap-2 rounded-md border border-border bg-card px-3.5 py-2 text-sm text-muted-foreground transition-colors hover:border-light_bronze-500 sm:flex sm:max-w-md"
+          className="ml-3 hidden flex-1 items-center gap-2 rounded-xl border border-white/40 bg-card/55 px-3.5 py-2 text-sm text-muted-foreground shadow-warm backdrop-blur-sm transition-colors hover:border-light_bronze-500 hover:bg-card/70 sm:flex sm:max-w-md"
         >
-          <Search className="h-4 w-4" />
+          <Search className="h-4 w-4 text-primary" />
           Search books, notes &amp; modules…
         </Link>
 

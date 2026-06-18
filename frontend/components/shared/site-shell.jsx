@@ -13,8 +13,10 @@
 import { usePathname } from 'next/navigation'
 import Navbar from '@/components/shared/navbar'
 import Footer from '@/components/shared/footer'
+import Atmosphere from '@/components/shared/atmosphere'
 
-// Routes that provide their own chrome and should not get the global one.
+// Routes that provide their own chrome (e.g. /login ships AuthNavbar and its
+// own copy of the shared Atmosphere). They still sit on the same background.
 const BARE_ROUTES = ['/login']
 
 export default function SiteShell({ children }) {
@@ -23,6 +25,7 @@ export default function SiteShell({ children }) {
 
   return (
     <>
+      {!bare && <Atmosphere />}
       {!bare && <Navbar />}
       <main className="flex-1">{children}</main>
       {!bare && <Footer />}

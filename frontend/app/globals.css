@@ -81,17 +81,21 @@
 
 @layer components {
   /* ── Buttons ───────────────────────────────────────────────────────── */
+  /* Primary stays a solid bronze CTA (contrast + conversion), lifted with a
+     faint inset top-sheen so it reads as a premium, slightly glassy chip. */
   .btn-primary {
     @apply inline-flex h-11 items-center justify-center gap-2 rounded-md bg-primary px-5
-           text-sm font-semibold text-primary-foreground shadow-warm transition-all
+           text-sm font-semibold text-primary-foreground transition-all
+           shadow-[inset_0_1px_0_0_rgba(255,255,255,0.22),0_2px_8px_-2px_rgba(50,33,15,0.20)]
            hover:bg-light_bronze-200 active:scale-[0.98]
            disabled:pointer-events-none disabled:opacity-50;
   }
   .btn-secondary {
-    @apply inline-flex h-11 items-center justify-center gap-2 rounded-md border border-tea_green-500
-           bg-secondary px-5 text-sm font-semibold text-secondary-foreground transition-all
-           hover:bg-tea_green-600 active:scale-[0.98]
+    @apply inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/40
+           px-5 text-sm font-semibold text-secondary-foreground backdrop-blur-sm
+           transition-all hover:bg-tea_green-600 active:scale-[0.98]
            disabled:pointer-events-none disabled:opacity-50;
+    background-color: rgba(225, 230, 207, 0.68); /* --secondary @ 68% */
   }
   .btn-ghost {
     @apply inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium
@@ -107,32 +111,53 @@
 
   /* ── Form controls ─────────────────────────────────────────────────── */
   .input {
-    @apply h-11 w-full rounded-md border border-input bg-card px-3.5 text-sm text-foreground
-           shadow-sm transition-colors placeholder:text-muted-foreground
+    @apply h-11 w-full rounded-md border border-input px-3.5 text-sm text-foreground
+           shadow-sm backdrop-blur-sm transition-colors placeholder:text-muted-foreground
            focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50;
+    background-color: rgba(255, 253, 246, 0.72); /* --card @ 72% */
   }
   .textarea {
-    @apply min-h-[120px] w-full rounded-md border border-input bg-card px-3.5 py-2.5 text-sm
-           leading-relaxed text-foreground shadow-sm transition-colors
+    @apply min-h-[120px] w-full rounded-md border border-input px-3.5 py-2.5 text-sm
+           leading-relaxed text-foreground shadow-sm backdrop-blur-sm transition-colors
            placeholder:text-muted-foreground focus-visible:border-ring
            disabled:cursor-not-allowed disabled:opacity-50;
+    background-color: rgba(255, 253, 246, 0.72); /* --card @ 72% */
   }
   .label {
     @apply mb-1.5 block text-sm font-medium text-foreground;
   }
 
   /* ── Surfaces & chips ──────────────────────────────────────────────── */
+  /* Glass design system. Two tiers calibrated by density:
+       .card        — the workhorse surface (incl. high-count grids): light
+                      frost (cheap blur, high opacity) so text stays crisp and
+                      a page full of them never janks.
+       .glass /
+       .glass-soft  — prominent, low-count panels (hero/sidebar/dialog-like):
+                      dramatic frost matching the /login card.
+     White-tint borders give the frosted edge; warm shadows give the lift. */
   .card {
-    @apply rounded-lg border border-border bg-card shadow-warm;
+    @apply rounded-lg border border-white/45 shadow-warm backdrop-blur-sm;
+    background-color: rgba(255, 253, 246, 0.80); /* --card @ 80% */
+  }
+  .glass {
+    @apply rounded-2xl border border-white/50 shadow-warm-lg backdrop-blur-xl;
+    background-color: rgba(255, 253, 246, 0.70); /* --card @ 70% */
+  }
+  .glass-soft {
+    @apply rounded-xl border border-white/40 shadow-warm backdrop-blur-md;
+    background-color: rgba(255, 253, 246, 0.62); /* --card @ 62% */
   }
   .badge {
-    @apply inline-flex items-center gap-1 rounded-full border border-border bg-card
+    @apply inline-flex items-center gap-1 rounded-full border border-white/40
            px-2.5 py-0.5 text-xs font-medium text-foreground;
+    background-color: rgba(255, 253, 246, 0.72); /* --card @ 72% */
   }
   .chip {
-    @apply inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1
-           text-sm font-medium text-foreground transition-colors
+    @apply inline-flex items-center gap-1.5 rounded-full border border-white/40 px-3 py-1
+           text-sm font-medium text-foreground backdrop-blur-sm transition-colors
            hover:border-light_bronze-500 hover:bg-accent;
+    background-color: rgba(255, 253, 246, 0.72); /* --card @ 72% */
   }
   .skeleton {
     @apply animate-pulse rounded-md bg-light_bronze-800/70;
