@@ -2,8 +2,7 @@ import './globals.css'
 import { Fraunces, Hanken_Grotesk, JetBrains_Mono } from 'next/font/google'
 import QueryProvider from '@/lib/query-provider'
 import { MotionProvider } from '@/components/shared/motion'
-import Navbar from '@/components/shared/navbar'
-import Footer from '@/components/shared/footer'
+import SiteShell from '@/components/shared/site-shell'
 import { Toaster } from '@/components/ui/sonner'
 import JsonLd from '@/components/shared/json-ld'
 
@@ -117,9 +116,7 @@ export default function RootLayout({ children }) {
         <JsonLd data={siteJsonLd} />
         <QueryProvider>
           <MotionProvider>
-            <Navbar />
-            <main className="flex-1">{children}</main>
-            <Footer />
+            <SiteShell>{children}</SiteShell>
             <Toaster />
           </MotionProvider>
         </QueryProvider>
