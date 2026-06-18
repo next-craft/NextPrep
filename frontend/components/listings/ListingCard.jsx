@@ -3,7 +3,7 @@ import Image from 'next/image'
 import { MapPin, BookOpen } from 'lucide-react'
 import PriceBlock from '@/components/shared/price-block'
 import { ConditionBadge, ListingTypeBadge } from '@/components/shared/badges'
-import { cn, listingStatus } from '@/lib/utils'
+import { cn, listingStatus, isOptimizedImageHost } from '@/lib/utils'
 import { EXAM_CATEGORY_LABEL } from '@/constants/examCategories'
 
 export default function ListingCard({ listing, className }) {
@@ -24,6 +24,7 @@ export default function ListingCard({ listing, className }) {
             src={listing.images[0]}
             alt={listing.title}
             fill
+            unoptimized={!isOptimizedImageHost(listing.images[0])}
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             className={cn(
               'object-cover transition-transform duration-500 ease-out group-hover:scale-105',

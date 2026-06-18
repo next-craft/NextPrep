@@ -3,7 +3,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { AnimatePresence } from 'framer-motion'
 import { BookOpen } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, isOptimizedImageHost } from '@/lib/utils'
 import { m } from '@/components/shared/motion'
 import { DURATION, EASE } from '@/lib/motion'
 
@@ -39,6 +39,8 @@ export default function ListingGallery({ images = [], title }) {
               fill
               // Main image is the LCP element on the listing page — load eagerly.
               priority={active === 0}
+              // External (non-Cloudinary) links bypass the optimizer so they still render.
+              unoptimized={!isOptimizedImageHost(images[active])}
               sizes="(max-width: 1024px) 100vw, 50vw"
               className="object-contain"
             />
@@ -62,6 +64,7 @@ export default function ListingGallery({ images = [], title }) {
                 src={url}
                 alt={`${title} — image ${i + 1}`}
                 fill
+                unoptimized={!isOptimizedImageHost(url)}
                 sizes="64px"
                 className="object-cover"
               />

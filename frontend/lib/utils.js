@@ -15,6 +15,24 @@ export function formatPrice(rupees) {
   }).format(rupees)
 }
 
+/**
+ * Hosts whose images we run through the next/image optimizer — must match
+ * `images.remotePatterns` in next.config.js. Device uploads land on Cloudinary;
+ * avatars come from Google. A listing image pasted as an arbitrary external link
+ * is NOT a trusted host, so we serve it unoptimized (a plain browser-loaded <img>)
+ * rather than opening the optimizer to fetch arbitrary URLs.
+ */
+const OPTIMIZED_IMAGE_HOSTS = new Set(['res.cloudinary.com', 'lh3.googleusercontent.com'])
+
+/** True if `url` is served by a host the next/image optimizer is allowed to fetch. */
+export function isOptimizedImageHost(url) {
+  try {
+    return OPTIMIZED_IMAGE_HOSTS.has(new URL(url).hostname)
+  } catch {
+    return false
+  }
+}
+
 /** Percentage saved vs original price, or null when there's no discount. */
 export function discountPercent(asking, original) {
   if (!original || original <= asking) return null
