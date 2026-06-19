@@ -38,6 +38,10 @@
     @apply border-border;
   }
   html {
+    /* Render the whole site as if the browser were zoomed to 120% — magnifies
+       layout, type, and images uniformly (responsive breakpoints shift with it,
+       exactly like real zoom). */
+    zoom: 1.2;
     scroll-behavior: smooth;
   }
   body {
