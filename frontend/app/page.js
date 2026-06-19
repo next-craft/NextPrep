@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { MapPin, KeyRound, ShieldCheck, Users, ArrowRight } from "lucide-react";
-import ListingGrid from "@/components/listings/ListingGrid";
+import ListingMarquee from "@/components/listings/ListingMarquee";
 import { ExamCategoryChip } from "@/components/shared/badges";
 import { POPULAR_EXAM_CATEGORIES } from "@/constants/examCategories";
 import { Reveal, Stagger, StaggerItem } from "@/components/shared/motion";
@@ -67,7 +67,7 @@ export default async function Home() {
     const res = await fetch(`${process.env.API_URL}/listings`, {
       cache: "no-store",
     });
-    if (res.ok) recent = (await res.json()).slice(0, 8);
+    if (res.ok) recent = (await res.json()).slice(0, 12);
   } catch {
     recent = [];
   }
@@ -190,7 +190,7 @@ export default async function Home() {
 
       {/* ── Recent listings ────────────────────────────────────────────── */}
       {recent.length > 0 && (
-        <section className="container pb-14">
+        <section className="cv-auto container pb-14">
           <Reveal inView className="mb-5 flex items-end justify-between">
             <h2 className="font-display text-2xl font-semibold">
               Fresh on NextPrep
@@ -203,12 +203,12 @@ export default async function Home() {
               <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
           </Reveal>
-          <ListingGrid listings={recent} />
+          <ListingMarquee listings={recent} />
         </section>
       )}
 
       {/* ── Browse by exam ─────────────────────────────────────────────── */}
-      <section className="container py-10">
+      <section className="cv-auto container py-10">
         <div className="glass p-6 sm:p-8">
           <Reveal
             inView
@@ -232,7 +232,7 @@ export default async function Home() {
       </section>
 
       {/* ── Sell CTA ───────────────────────────────────────────────────── */}
-      <section className="container py-16">
+      <section className="cv-auto container py-16">
         <Reveal
           inView
           y={20}

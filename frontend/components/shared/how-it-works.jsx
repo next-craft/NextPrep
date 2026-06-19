@@ -90,7 +90,7 @@ export default function HowItWorks() {
   const last = STEPS.length - 1
 
   return (
-    <section className="container py-14">
+    <section className="cv-auto container py-14">
       <m.h2
         initial={reduced ? { opacity: 0 } : { opacity: 0, y: 12 }}
         whileInView={{ opacity: 1, y: 0 }}

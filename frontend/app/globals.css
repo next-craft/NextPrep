@@ -92,8 +92,8 @@
   }
   .btn-secondary {
     @apply inline-flex h-11 items-center justify-center gap-2 rounded-md border border-white/40
-           px-5 text-sm font-semibold text-secondary-foreground backdrop-blur-sm
-           transition-all hover:bg-tea_green-600 active:scale-[0.98]
+           px-5 text-sm font-semibold text-secondary-foreground backdrop-blur-sm transition-all
+           hover:bg-tea_green-600 active:scale-[0.98]
            disabled:pointer-events-none disabled:opacity-50;
     background-color: rgba(225, 230, 207, 0.68); /* --secondary @ 68% */
   }
@@ -138,7 +138,7 @@
      White-tint borders give the frosted edge; warm shadows give the lift. */
   .card {
     @apply rounded-lg border border-white/45 shadow-warm backdrop-blur-sm;
-    background-color: rgba(255, 253, 246, 0.80); /* --card @ 80% */
+    background-color: rgba(255, 253, 246, 0.74); /* --card @ 74% */
   }
   .glass {
     @apply rounded-2xl border border-white/50 shadow-warm-lg backdrop-blur-xl;
@@ -155,7 +155,7 @@
   }
   .chip {
     @apply inline-flex items-center gap-1.5 rounded-full border border-white/40 px-3 py-1
-           text-sm font-medium text-foreground backdrop-blur-sm transition-colors
+           text-sm font-medium text-foreground transition-colors
            hover:border-light_bronze-500 hover:bg-accent;
     background-color: rgba(255, 253, 246, 0.72); /* --card @ 72% */
   }
@@ -175,4 +175,30 @@
   .link-underline:hover::after {
     @apply scale-x-100;
   }
+}
+
+@layer utilities {
+  /* Skip rendering (and animating) off-screen sections entirely. Lets the
+     atmosphere/marquee stay animated without paying for what's scrolled away.
+     The intrinsic size is a placeholder so the scrollbar doesn't jump. */
+  .cv-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 480px;
+  }
+}
+
+/* Aurora drift — compositor-only transforms (translate3d + scale) on the
+   atmosphere's blurred glows. Cheap: the blurred bitmap is cached and merely
+   transformed on the GPU. prefers-reduced-motion neutralises these globally. */
+@keyframes aurora-1 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(28px, -22px, 0) scale(1.08); }
+}
+@keyframes aurora-2 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-24px, 18px, 0) scale(0.94); }
+}
+@keyframes aurora-3 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(18px, 20px, 0) scale(1.06); }
 }

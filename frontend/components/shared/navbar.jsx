@@ -83,7 +83,7 @@ export default function Navbar() {
         // (below) carries the wordmark over the aurora. Once scrolled, a
         // frosted fill fades in so content stays legible beneath it.
         scrolled
-          ? 'border-b border-white/40 bg-cornsilk/55 shadow-warm-lg backdrop-blur-xl'
+          ? 'border-b border-white/40 bg-cornsilk/80 shadow-warm-lg backdrop-blur-md'
           : 'border-b border-transparent bg-transparent'
       )}
     >

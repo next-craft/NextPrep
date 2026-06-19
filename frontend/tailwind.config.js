@@ -88,12 +88,19 @@ const config = {
           '20%, 60%': { transform: 'translateX(-4px)' },
           '40%, 80%': { transform: 'translateX(4px)' },
         },
+        // marquee track holds two identical copies; shifting by one copy
+        // width (-50%) loops seamlessly. -50% → 0 reads left-to-right.
+        marquee: {
+          from: { transform: 'translateX(-50%)' },
+          to: { transform: 'translateX(0)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.4s ease-out both',
         'fade-in-up': 'fade-in-up 0.5s ease-out both',
         'scale-in': 'scale-in 0.2s ease-out both',
         shake: 'shake 0.4s ease-in-out',
+        marquee: 'marquee 45s linear infinite',
       },
     },
   },
