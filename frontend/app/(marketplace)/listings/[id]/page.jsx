@@ -19,8 +19,21 @@ export const revalidate = 0
 
 // cache() dedupes this across generateMetadata, the OG image route, and the page
 // render within a single request — without it the listing is fetched 3×.
+// Forward the signed-in user's token so the API can identify the viewer: views
+// are counted once per non-owner account (the owner's own opens never count).
 const getListing = cache(async function getListing(id) {
-  const res = await fetch(`${process.env.API_URL}/listings/${id}`, { cache: 'no-store' })
+  const supabase = await createServerSupabaseClient()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  const headers = session?.access_token
+    ? { Authorization: `Bearer ${session.access_token}` }
+    : undefined
+
+  const res = await fetch(`${process.env.API_URL}/listings/${id}`, {
+    cache: 'no-store',
+    headers,
+  })
   if (res.status === 404) return { notFound: true }
   if (!res.ok) return { error: true }
   return { listing: await res.json() }

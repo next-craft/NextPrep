@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.security import verify_token
+from app.core.security import verify_token, optional_user
 from app.schemas.listing import (
     ListingCreate, ListingCreateOut, ListingOut, ListingUpdate
 )
@@ -57,11 +57,17 @@ async def my_listings(
 async def get_listing(
     listing_id: UUID,
     db: AsyncSession = Depends(get_db),
+    user=Depends(optional_user),
 ):
     listing = await listing_service.get_listing_by_id(db, str(listing_id))
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found.")
-    await listing_service.increment_views(db, listing)
+    # Count a view only for a signed-in account that isn't the seller, and only
+    # once per account (the service dedups). Owner views and anonymous opens
+    # don't count.
+    viewer_id = user["sub"] if user else None
+    if viewer_id and viewer_id != str(listing.seller_id):
+        await listing_service.record_unique_view(db, listing, viewer_id)
     return listing
 
 

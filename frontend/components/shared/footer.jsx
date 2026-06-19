@@ -3,7 +3,13 @@ import { BookOpen, ShieldCheck, MapPin } from 'lucide-react'
 
 export default function Footer() {
   return (
-    <footer className="mt-16 border-t border-border bg-papaya_whip-800">
+    <footer className="relative mt-16">
+      {/* whisper-faint hairline only — no panel; the footer floats over the
+          aurora like the hero, matching the transparent navbar */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent"
+      />
       <div className="container py-10">
         <div className="flex flex-col gap-8 sm:flex-row sm:justify-between">
           <div className="max-w-xs">
@@ -41,7 +47,7 @@ export default function Footer() {
           </nav>
         </div>
 
-        <div className="mt-8 flex flex-col gap-3 border-t border-border pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-8 flex flex-col gap-3 border-t border-white/30 pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} NextPrep. Built for Indian students.</p>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <span className="inline-flex items-center gap-1.5">

@@ -66,6 +66,18 @@ async def verify_token(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
+async def optional_user(authorization: str = Header(None)):
+    """Like verify_token, but for public endpoints that personalise when signed
+    in: returns the JWT payload if a valid token is present, otherwise None
+    (never raises). Used by GET /listings/{id} to identify the viewer."""
+    if not authorization:
+        return None
+    try:
+        return await verify_token(authorization)
+    except HTTPException:
+        return None
+
+
 def generate_passkey() -> str:
     """8-digit zero-padded passkey from a CSPRNG. Plaintext is shown to the seller once."""
     return str(secrets.randbelow(100_000_000)).zfill(8)

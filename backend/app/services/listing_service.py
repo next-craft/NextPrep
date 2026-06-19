@@ -3,9 +3,11 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import select, or_, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.listing import Listing
+from app.models.listing_view import ListingView
 from app.schemas.listing import ListingCreate, ListingUpdate
 from app.core.security import generate_passkey, hash_passkey
 
@@ -98,16 +100,31 @@ async def get_listing_by_id(db: AsyncSession, listing_id: str) -> Listing | None
     return result.scalar_one_or_none()
 
 
-async def increment_views(db: AsyncSession, listing: Listing) -> None:
-    await db.execute(
-        update(Listing)
-        .where(Listing.id == listing.id)
-        .values(views=Listing.views + 1)
+async def record_unique_view(db: AsyncSession, listing: Listing, viewer_id: str) -> None:
+    """Count a view at most once per account. Caller must already have excluded
+    the owner. Inserts a (listing, viewer) row idempotently; the counter only
+    increments when that insert is new (a first-time viewer), so repeat opens by
+    the same account never bump it."""
+    insert_stmt = (
+        pg_insert(ListingView)
+        .values(listing_id=listing.id, viewer_id=UUID(viewer_id))
+        .on_conflict_do_nothing(index_elements=["listing_id", "viewer_id"])
     )
+    result = await db.execute(insert_stmt)
+    first_time = bool(result.rowcount)  # 1 when inserted, 0 when already seen
+
+    if first_time:
+        await db.execute(
+            update(Listing)
+            .where(Listing.id == listing.id)
+            .values(views=Listing.views + 1)
+            .execution_options(synchronize_session=False)
+        )
+        # Reflect the new count in the in-memory instance for the response
+        # (expire_on_commit=False keeps it after commit, no extra SELECT).
+        listing.views = (listing.views or 0) + 1
+
     await db.commit()
-    # The ORM-enabled UPDATE above already synchronizes `listing.views` in the session
-    # (synchronize_session='auto'), so the response reflects the new count without the
-    # extra SELECT that db.refresh() would cost.
 
 
 async def update_listing(
