@@ -194,6 +194,23 @@
   }
 }
 
+/* Grade stamp — a used-book "ink stamp" settles onto the gallery corner on
+   load (transform + opacity only; reduced-motion lands instantly on the final
+   frame via the global rule). */
+@keyframes stamp-in {
+  0% {
+    opacity: 0;
+    transform: rotate(4deg) scale(1.7);
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(-9deg) scale(1);
+  }
+}
+
 /* Aurora drift — compositor-only transforms (translate3d + scale) on the
    atmosphere's blurred glows. Cheap: the blurred bitmap is cached and merely
    transformed on the GPU. prefers-reduced-motion neutralises these globally. */

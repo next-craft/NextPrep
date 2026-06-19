@@ -153,135 +153,181 @@ export default async function ListingDetailPage({ params }) {
     ],
   }
 
+  const cond = conditionMeta(listing.condition)
+
   return (
-    <div className="container py-6 lg:py-8">
+    <div className="container py-8 lg:py-12">
       <JsonLd data={[productJsonLd, breadcrumbJsonLd]} />
-      <Link href="/listings" className="mb-5 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
-        ← Back to listings
+      <Link
+        href="/listings"
+        className="group mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <span aria-hidden className="transition-transform duration-200 group-hover:-translate-x-1">←</span>
+        Back to listings
       </Link>
 
       {status === 'sold' && (
-        <Reveal y={-8} className="mb-5 rounded-lg border border-[#e4b3a6] bg-[#f7e6e0] px-4 py-3 text-sm font-medium text-[#8f3322]">
+        <Reveal y={-8} className="mb-6 rounded-xl border border-[#e4b3a6] bg-[#f7e6e0] px-4 py-3 text-sm font-medium text-[#8f3322]">
           This listing has been sold.
         </Reveal>
       )}
       {status === 'paused' && (
-        <Reveal y={-8} className="mb-5 rounded-lg border border-[#ecd6a0] bg-[#fbf1d6] px-4 py-3 text-sm font-medium text-[#8a5e12]">
+        <Reveal y={-8} className="mb-6 rounded-xl border border-[#ecd6a0] bg-[#fbf1d6] px-4 py-3 text-sm font-medium text-[#8a5e12]">
           This listing is temporarily unavailable.
         </Reveal>
       )}
 
-      <div className="grid gap-8 lg:grid-cols-2">
-        {/* Gallery */}
-        <Reveal>
-          <ListingGallery images={listing.images || []} title={listing.title} />
+      <div className="grid items-start gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
+        {/* Gallery — a matted "frame" lifts on hover; a library-style ink
+            grade stamp settles onto the corner on load (CSS animation only). */}
+        <Reveal whileHover={{ y: -3 }} className="lg:sticky lg:top-24">
+          <div className="relative rounded-2xl border border-white/50 bg-gradient-to-br from-papaya_whip-800/70 to-cornsilk-700/40 p-3 shadow-warm-lg backdrop-blur-sm sm:p-4">
+            <ListingGallery images={listing.images || []} title={listing.title} />
+
+            <div
+              aria-hidden
+              className="pointer-events-none absolute right-4 top-4 z-10 sm:right-6 sm:top-6"
+              style={{ animation: 'stamp-in 0.7s cubic-bezier(0.22,1,0.36,1) 0.4s both' }}
+            >
+              <div
+                className="flex h-20 w-20 flex-col items-center justify-center rounded-full border-2 border-light_bronze-300/70 bg-cornsilk-700/40 text-center text-light_bronze-300 backdrop-blur-[2px] sm:h-24 sm:w-24"
+                style={{ boxShadow: 'inset 0 0 0 3px rgba(150,98,46,0.22)' }}
+              >
+                <span className="text-[9px] font-semibold uppercase tracking-[0.2em]">Grade</span>
+                <span className="font-display text-3xl font-bold leading-none sm:text-4xl">{listing.condition}</span>
+                <span className="whitespace-nowrap text-[8px] font-medium uppercase tracking-[0.14em]">{cond.short}</span>
+              </div>
+            </div>
+          </div>
         </Reveal>
 
-        {/* Summary + actions — sticky wrapper stays untransformed; its inner
-            content sequences in (transforms on children don't break sticky). */}
-        <div className="lg:sticky lg:top-20 lg:self-start">
-          <Stagger gap={0.07}>
-            <StaggerItem className="mb-3 flex flex-wrap items-center gap-1.5">
-              <ListingTypeBadge type={listing.listing_type} />
-              <ExamCategoryChip value={listing.exam_category} />
-            </StaggerItem>
+        {/* Purchase rail — one cohesive glass panel. The sticky wrapper stays
+            untransformed; its inner content sequences in (transforms on
+            children don't break sticky). */}
+        <div className="lg:sticky lg:top-24 lg:self-start">
+          <div className="glass p-6 sm:p-7">
+            <Stagger gap={0.07}>
+              <StaggerItem className="mb-3 flex flex-wrap items-center gap-1.5">
+                <ListingTypeBadge type={listing.listing_type} />
+                <ExamCategoryChip value={listing.exam_category} />
+              </StaggerItem>
 
-            <StaggerItem as="h1" className="font-display text-2xl font-semibold leading-tight sm:text-3xl">
-              {listing.title}
-            </StaggerItem>
+              <StaggerItem as="h1" className="font-display text-2xl font-semibold leading-tight sm:text-[2rem]">
+                {listing.title}
+              </StaggerItem>
 
-            <StaggerItem className="mt-4">
-              <PriceBlock asking={listing.asking_price} original={listing.original_price} size="lg" />
-            </StaggerItem>
+              <StaggerItem className="mt-4">
+                <PriceBlock asking={listing.asking_price} original={listing.original_price} size="lg" />
+              </StaggerItem>
 
-            <StaggerItem className="mt-5 flex flex-wrap items-center gap-2">
-              <ConditionBadge code={listing.condition} />
-              <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                <MapPin className="h-4 w-4" /> {listing.city}
-              </span>
-              <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Eye className="h-4 w-4" /> {listing.views} views
-              </span>
-            </StaggerItem>
+              <StaggerItem className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2">
+                <ConditionBadge code={listing.condition} />
+                <Dot />
+                <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <MapPin className="h-4 w-4" /> {listing.city}
+                </span>
+                <Dot />
+                <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <Eye className="h-4 w-4" /> {listing.views} views
+                </span>
+              </StaggerItem>
 
-            <StaggerItem>
-              <p className="mt-2 text-sm text-muted-foreground">{conditionMeta(listing.condition).full}</p>
-              {listing.subject && (
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Subject: <span className="text-foreground">{listing.subject}</span>
-                </p>
+              <StaggerItem>
+                <p className="mt-3 text-sm text-muted-foreground">{cond.full}</p>
+                {listing.subject && (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Subject: <span className="font-medium text-foreground">{listing.subject}</span>
+                  </p>
+                )}
+              </StaggerItem>
+
+              <StaggerItem className="my-6 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
+              {/* Seller card */}
+              {seller && (
+                <StaggerItem whileHover={{ y: -3 }}>
+                  <Link
+                    href={`/users/${seller.id}`}
+                    className="glass-soft group flex items-center gap-3 p-4 transition-colors hover:border-light_bronze-500"
+                  >
+                    <Avatar src={seller.avatar_url} name={seller.full_name} size={48} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                        Seller
+                      </p>
+                      <p className="flex items-center gap-1 font-medium">
+                        <span className="truncate">{seller.full_name}</span>
+                        {seller.is_verified && <BadgeCheck className="h-4 w-4 shrink-0 text-primary" />}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {seller.city ? `${seller.city} · ` : ''}
+                        {seller.books_sold} {seller.books_sold === 1 ? 'sale' : 'sales'}
+                        {seller.seller_rating ? ` · ★ ${seller.seller_rating}` : ''}
+                      </p>
+                    </div>
+                    <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-1" />
+                  </Link>
+                </StaggerItem>
               )}
-            </StaggerItem>
 
-            {/* Seller card */}
-            {seller && (
-              <StaggerItem whileHover={{ y: -3 }}>
-                <Link
-                  href={`/users/${seller.id}`}
-                  className="card group mt-6 flex items-center gap-3 p-4 transition-colors hover:border-light_bronze-500"
-                >
-                  <Avatar src={seller.avatar_url} name={seller.full_name} size={48} />
-                  <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-1 font-medium">
-                      <span className="truncate">{seller.full_name}</span>
-                      {seller.is_verified && <BadgeCheck className="h-4 w-4 shrink-0 text-primary" />}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {seller.city ? `${seller.city} · ` : ''}
-                      {seller.books_sold} {seller.books_sold === 1 ? 'sale' : 'sales'}
-                      {seller.seller_rating ? ` · ★ ${seller.seller_rating}` : ''}
+              {/* Actions */}
+              <StaggerItem className="mt-6">
+                {isOwner ? (
+                  <Link href="/dashboard" className="btn-secondary w-full">
+                    <Settings className="h-4 w-4" /> Manage listing
+                  </Link>
+                ) : isAvailable && user ? (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-3">
+                      <BuyNowButton listingId={listing.id} className="flex-1" />
+                      <MessageSellerButton listingId={listing.id} className="flex-1" />
+                    </div>
+                    <p className="flex items-start gap-2.5 rounded-xl border border-tea_green-500/60 bg-tea_green-800/50 p-3.5 text-xs leading-relaxed text-secondary-foreground">
+                      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                      <span>
+                        Meet in a public place, inspect the material, and settle payment directly with
+                        the seller. Then enter the seller&apos;s code here to confirm the exchange.{' '}
+                        <span className="font-semibold">Never share the code over chat.</span>
+                      </span>
                     </p>
                   </div>
-                  <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-1" />
-                </Link>
+                ) : isAvailable && !user ? (
+                  <Link href="/login" className="btn-primary w-full">
+                    Continue with Google to buy or chat
+                  </Link>
+                ) : null}
               </StaggerItem>
-            )}
 
-            {/* Actions */}
-            <StaggerItem className="mt-6">
-              {isOwner ? (
-              <Link href="/dashboard" className="btn-secondary w-full">
-                <Settings className="h-4 w-4" /> Manage listing
-              </Link>
-            ) : isAvailable && user ? (
-              <div className="space-y-3">
-                <div className="flex flex-wrap gap-3">
-                  <BuyNowButton listingId={listing.id} className="flex-1" />
-                  <MessageSellerButton listingId={listing.id} className="flex-1" />
-                </div>
-                <p className="flex items-start gap-2 rounded-lg bg-secondary/60 p-3 text-xs text-secondary-foreground">
-                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-                  Meet in a public place, inspect the material, and settle payment directly with the
-                  seller. Then enter the seller&apos;s code here to confirm the exchange. Never share
-                  the code over chat.
-                </p>
-              </div>
-            ) : isAvailable && !user ? (
-              <Link href="/login" className="btn-primary w-full">
-                Continue with Google to buy or chat
-              </Link>
-            ) : null}
-            </StaggerItem>
-
-            {/* Report — available to any non-owner viewer, in any listing state */}
-            {!isOwner && (
-              <StaggerItem className="mt-4 flex justify-end">
-                <ReportListingDialog listingId={listing.id} isLoggedIn={!!user} />
-              </StaggerItem>
-            )}
-          </Stagger>
+              {/* Report — available to any non-owner viewer, in any listing state */}
+              {!isOwner && (
+                <StaggerItem className="mt-4 flex justify-end">
+                  <ReportListingDialog listingId={listing.id} isLoggedIn={!!user} />
+                </StaggerItem>
+              )}
+            </Stagger>
+          </div>
         </div>
       </div>
 
-      {/* Description */}
+      {/* Description — editorial column with a drop cap and a kicker rule */}
       {listing.description && (
-        <Reveal inView className="mt-10 max-w-3xl">
-          <h2 className="font-display text-lg font-semibold">Description</h2>
-          <p className="mt-2 whitespace-pre-wrap leading-relaxed text-foreground/90">
+        <Reveal inView className="mt-14 max-w-3xl">
+          <div className="mb-3 flex items-center gap-3">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-light_bronze-300">
+              Description
+            </h2>
+            <span className="h-px flex-1 bg-gradient-to-r from-light_bronze-500/50 to-transparent" />
+          </div>
+          <p className="whitespace-pre-wrap leading-relaxed text-foreground/90 first-letter:float-left first-letter:mr-2.5 first-letter:mt-1 first-letter:font-display first-letter:text-5xl first-letter:font-semibold first-letter:leading-[0.75] first-letter:text-light_bronze-300">
             {listing.description}
           </p>
         </Reveal>
       )}
     </div>
   )
+}
+
+/** Small inline separator dot for the meta row. */
+function Dot() {
+  return <span aria-hidden className="h-1 w-1 shrink-0 rounded-full bg-light_bronze-500/70" />
 }
