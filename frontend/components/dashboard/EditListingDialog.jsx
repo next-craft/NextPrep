@@ -123,12 +123,12 @@ export default function EditListingDialog({ listing, open, onOpenChange, onSaved
 
           <div>
             <label htmlFor="e-subject" className="label">Subject</label>
-            <input id="e-subject" className="input" list="subject-edit" value={form.subject} onChange={set('subject')} />
-            <datalist id="subject-edit">
+            <select id="e-subject" className="input" value={form.subject} onChange={set('subject')}>
+              <option value="">Select subject…</option>
               {SUBJECTS.map((s) => (
-                <option key={s} value={s} />
+                <option key={s} value={s}>{s}</option>
               ))}
-            </datalist>
+            </select>
           </div>
 
           <div>

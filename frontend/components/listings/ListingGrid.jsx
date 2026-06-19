@@ -19,7 +19,7 @@ export default function ListingGrid({ listings, className }) {
       {listings.map((listing) => (
         <StaggerItem
           key={listing.id}
-          className="flex"
+          className="flex cv-card"
           whileHover={{ y: -5 }}
           transition={SPRING}
         >

@@ -192,6 +192,14 @@
     content-visibility: auto;
     contain-intrinsic-size: auto 480px;
   }
+  /* Same skip-when-off-screen behaviour, sized for a single listing card so
+     the pre-render placeholder matches a real card's height (no scroll jump).
+     The `auto` keyword makes the browser remember each card's true height
+     after its first paint. */
+  .cv-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 360px;
+  }
 }
 
 /* Grade stamp — a used-book "ink stamp" settles onto the gallery corner on

@@ -33,10 +33,10 @@ export function ListingGridSkeleton({ count = 8, className }) {
 export function ListingDetailSkeleton() {
   return (
     <div className="grid items-start gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
-      <div className="rounded-2xl border border-white/50 bg-card/40 p-3 shadow-warm sm:p-4">
+      <div className="rounded-2xl border border-white/50 bg-papaya_whip-700 p-3 shadow-warm sm:p-4">
         <Skeleton className="aspect-[4/3] w-full" />
       </div>
-      <div className="glass space-y-4 p-6 sm:p-7">
+      <div className="space-y-4 rounded-2xl border border-white/50 bg-card/95 p-6 shadow-warm-lg sm:p-7">
         <div className="flex gap-2">
           <Skeleton className="h-6 w-16" />
           <Skeleton className="h-6 w-20" />

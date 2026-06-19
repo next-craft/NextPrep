@@ -179,9 +179,10 @@ export default async function ListingDetailPage({ params }) {
 
       <div className="grid items-start gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
         {/* Gallery — a matted "frame" lifts on hover; a library-style ink
-            grade stamp settles onto the corner on load (CSS animation only). */}
-        <Reveal whileHover={{ y: -3 }} className="lg:sticky lg:top-24">
-          <div className="relative rounded-2xl border border-white/50 bg-gradient-to-br from-papaya_whip-800/70 to-cornsilk-700/40 p-3 shadow-warm-lg backdrop-blur-sm sm:p-4">
+            grade stamp settles onto the corner on load (CSS animation only).
+            Solid fills (no backdrop-blur) so scroll/hover stay smooth. */}
+        <Reveal whileHover={{ y: -3 }}>
+          <div className="relative rounded-2xl border border-white/50 bg-gradient-to-br from-papaya_whip-700 to-cornsilk-700 p-3 shadow-warm-lg sm:p-4">
             <ListingGallery images={listing.images || []} title={listing.title} />
 
             <div
@@ -190,7 +191,7 @@ export default async function ListingDetailPage({ params }) {
               style={{ animation: 'stamp-in 0.7s cubic-bezier(0.22,1,0.36,1) 0.4s both' }}
             >
               <div
-                className="flex h-20 w-20 flex-col items-center justify-center rounded-full border-2 border-light_bronze-300/70 bg-cornsilk-700/40 text-center text-light_bronze-300 backdrop-blur-[2px] sm:h-24 sm:w-24"
+                className="flex h-20 w-20 flex-col items-center justify-center rounded-full border-2 border-light_bronze-300/70 bg-cornsilk-600/80 text-center text-light_bronze-300 sm:h-24 sm:w-24"
                 style={{ boxShadow: 'inset 0 0 0 3px rgba(150,98,46,0.22)' }}
               >
                 <span className="text-[9px] font-semibold uppercase tracking-[0.2em]">Grade</span>
@@ -205,7 +206,7 @@ export default async function ListingDetailPage({ params }) {
             untransformed; its inner content sequences in (transforms on
             children don't break sticky). */}
         <div className="lg:sticky lg:top-24 lg:self-start">
-          <div className="glass p-6 sm:p-7">
+          <div className="rounded-2xl border border-white/50 bg-card/95 p-6 shadow-warm-lg sm:p-7">
             <Stagger gap={0.07}>
               <StaggerItem className="mb-3 flex flex-wrap items-center gap-1.5">
                 <ListingTypeBadge type={listing.listing_type} />
@@ -248,7 +249,7 @@ export default async function ListingDetailPage({ params }) {
                 <StaggerItem whileHover={{ y: -3 }}>
                   <Link
                     href={`/users/${seller.id}`}
-                    className="glass-soft group flex items-center gap-3 p-4 transition-colors hover:border-light_bronze-500"
+                    className="group flex items-center gap-3 rounded-xl border border-border bg-papaya_whip-800/60 p-4 shadow-warm transition-colors hover:border-light_bronze-500"
                   >
                     <Avatar src={seller.avatar_url} name={seller.full_name} size={48} />
                     <div className="min-w-0 flex-1">
@@ -309,16 +310,16 @@ export default async function ListingDetailPage({ params }) {
         </div>
       </div>
 
-      {/* Description — editorial column with a drop cap and a kicker rule */}
+      {/* Description — editorial column with a kicker rule */}
       {listing.description && (
-        <Reveal inView className="mt-14 max-w-3xl">
-          <div className="mb-3 flex items-center gap-3">
+        <Reveal inView className="cv-auto mt-14 max-w-3xl">
+          <div className="mb-4 flex items-center gap-3">
             <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-light_bronze-300">
               Description
             </h2>
             <span className="h-px flex-1 bg-gradient-to-r from-light_bronze-500/50 to-transparent" />
           </div>
-          <p className="whitespace-pre-wrap leading-relaxed text-foreground/90 first-letter:float-left first-letter:mr-2.5 first-letter:mt-1 first-letter:font-display first-letter:text-5xl first-letter:font-semibold first-letter:leading-[0.75] first-letter:text-light_bronze-300">
+          <p className="whitespace-pre-wrap text-[0.95rem] leading-7 text-foreground/90">
             {listing.description}
           </p>
         </Reveal>

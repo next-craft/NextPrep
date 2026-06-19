@@ -133,20 +133,17 @@ export default function ListingFilters({ current = {}, onNavigate, showHeader = 
 
       <div>
         <label htmlFor="f-subject" className="label">Subject</label>
-        <input
+        <select
           id="f-subject"
-          list="subject-options"
           className="input"
-          defaultValue={current.subject || ''}
-          placeholder="Any subject"
-          onKeyDown={commitOnEnter('subject')}
-          onBlur={commitText('subject')}
-        />
-        <datalist id="subject-options">
+          value={current.subject || ''}
+          onChange={(e) => handleChange('subject', e.target.value)}
+        >
+          <option value="">All subjects</option>
           {SUBJECTS.map((s) => (
-            <option key={s} value={s} />
+            <option key={s} value={s}>{s}</option>
           ))}
-        </datalist>
+        </select>
       </div>
     </div>
   )
