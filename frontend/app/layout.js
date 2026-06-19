@@ -112,7 +112,10 @@ export default function RootLayout({ children }) {
       lang="en-IN"
       className={`${fraunces.variable} ${hanken.variable} ${jetbrainsMono.variable}`}
     >
-      <body className="flex min-h-screen flex-col">
+      {/* suppressHydrationWarning: browser extensions (e.g. ColorZilla's
+          cz-shortcut-listen) inject attributes on <body> before hydration —
+          this silences that benign extension-only mismatch, not our markup. */}
+      <body className="flex min-h-screen flex-col" suppressHydrationWarning>
         <JsonLd data={siteJsonLd} />
         <QueryProvider>
           <MotionProvider>
