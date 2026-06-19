@@ -115,18 +115,12 @@ export default function CreateListingForm() {
 
             <div>
               <label htmlFor="subject" className="label">Subject</label>
-              <input
-                id="subject"
-                name="subject"
-                list="subject-options-form"
-                className="input"
-                placeholder="e.g. Physics"
-              />
-              <datalist id="subject-options-form">
+              <select id="subject" name="subject" defaultValue="" className="input">
+                <option value="">Select subject…</option>
                 {SUBJECTS.map((s) => (
-                  <option key={s} value={s} />
+                  <option key={s} value={s}>{s}</option>
                 ))}
-              </datalist>
+              </select>
             </div>
 
             <div>

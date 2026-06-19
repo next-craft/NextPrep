@@ -192,6 +192,31 @@
     content-visibility: auto;
     contain-intrinsic-size: auto 480px;
   }
+  /* Same skip-when-off-screen behaviour, sized for a single listing card so
+     the pre-render placeholder matches a real card's height (no scroll jump).
+     The `auto` keyword makes the browser remember each card's true height
+     after its first paint. */
+  .cv-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 360px;
+  }
+}
+
+/* Grade stamp — a used-book "ink stamp" settles onto the gallery corner on
+   load (transform + opacity only; reduced-motion lands instantly on the final
+   frame via the global rule). */
+@keyframes stamp-in {
+  0% {
+    opacity: 0;
+    transform: rotate(4deg) scale(1.7);
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(-9deg) scale(1);
+  }
 }
 
 /* Aurora drift — compositor-only transforms (translate3d + scale) on the

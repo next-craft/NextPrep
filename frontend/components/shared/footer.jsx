@@ -3,7 +3,7 @@ import { BookOpen, ShieldCheck, MapPin } from 'lucide-react'
 
 export default function Footer() {
   return (
-    <footer className="relative mt-16">
+    <footer className="relative mt-16 cv-auto">
       {/* whisper-faint hairline only — no panel; the footer floats over the
           aurora like the hero, matching the transparent navbar */}
       <div
