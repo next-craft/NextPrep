@@ -23,7 +23,7 @@ from sqlalchemy import text
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.core.security import verify_token
+from app.core.security import verify_token, optional_user
 from app.core.database import get_db, AsyncSessionLocal
 
 
@@ -39,6 +39,16 @@ def _hash_passkey(passkey: str, listing_id: str) -> str:
 
 def _override_verify_token(user_id: str):
     def _inner():
+        return {"sub": user_id, "email": f"{user_id}@example.com"}
+    return _inner
+
+
+def _override_optional_user(user_id):
+    """Override the optional-auth dependency on GET /listings/{id}. Pass a user
+    id to simulate that signed-in viewer, or None to simulate an anonymous open."""
+    def _inner():
+        if user_id is None:
+            return None
         return {"sub": user_id, "email": f"{user_id}@example.com"}
     return _inner
 
@@ -553,16 +563,41 @@ def test_get_listing_by_id_after_delete_still_returns_200_not_404(client, auth_a
 # Views counter
 # ---------------------------------------------------------------------------
 
-def test_get_listing_by_id_increments_views_counter_on_each_request(client, auth_as_seller):
+def test_non_owner_view_counts_only_once_per_account(client, auth_as_seller):
+    """A signed-in non-owner bumps the counter on their first open, and never
+    again — repeat opens by the same account don't re-count."""
     create_resp = client.post("/v1/listings", json=VALID_LISTING_PAYLOAD)
     listing_id = create_resp.json()["listing"]["id"]
     initial_views = create_resp.json()["listing"]["views"]
 
+    app.dependency_overrides[optional_user] = _override_optional_user(OTHER_USER_ID)
     first = client.get(f"/v1/listings/{listing_id}")
     second = client.get(f"/v1/listings/{listing_id}")
 
     assert first.json()["views"] == initial_views + 1
-    assert second.json()["views"] == initial_views + 2
+    assert second.json()["views"] == initial_views + 1  # deduped, no second bump
+
+
+def test_owner_viewing_own_listing_does_not_count(client, auth_as_seller):
+    create_resp = client.post("/v1/listings", json=VALID_LISTING_PAYLOAD)
+    listing_id = create_resp.json()["listing"]["id"]
+    initial_views = create_resp.json()["listing"]["views"]
+
+    app.dependency_overrides[optional_user] = _override_optional_user(SELLER_ID)
+    resp = client.get(f"/v1/listings/{listing_id}")
+
+    assert resp.json()["views"] == initial_views  # owner excluded
+
+
+def test_anonymous_view_does_not_count(client, auth_as_seller):
+    create_resp = client.post("/v1/listings", json=VALID_LISTING_PAYLOAD)
+    listing_id = create_resp.json()["listing"]["id"]
+    initial_views = create_resp.json()["listing"]["views"]
+
+    app.dependency_overrides[optional_user] = _override_optional_user(None)
+    resp = client.get(f"/v1/listings/{listing_id}")
+
+    assert resp.json()["views"] == initial_views  # no account → not counted
 
 
 # ---------------------------------------------------------------------------

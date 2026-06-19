@@ -7,25 +7,25 @@
    Page = cornsilk paper · ink = deep bronze · CTA = bronze · soft greens
    ────────────────────────────────────────────────────────────────────── */
 :root {
-  --background: #fefae0;            /* cornsilk — warm paper */
-  --foreground: #32210f;            /* light_bronze-100 — ink */
-  --card: #fffdf6;                  /* warm white surface */
+  --background: #fefae0; /* cornsilk — warm paper */
+  --foreground: #32210f; /* light_bronze-100 — ink */
+  --card: #fffdf6; /* warm white surface */
   --card-foreground: #32210f;
   --popover: #fffdf6;
   --popover-foreground: #32210f;
-  --primary: #96622e;               /* light_bronze-300 — bronze CTA */
+  --primary: #96622e; /* light_bronze-300 — bronze CTA */
   --primary-foreground: #fdf6e9;
-  --secondary: #e1e6cf;             /* tea_green-700 — soft green surface */
+  --secondary: #e1e6cf; /* tea_green-700 — soft green surface */
   --secondary-foreground: #2d331a;
-  --muted: #f2f4df;                 /* beige-700 — muted surface */
-  --muted-foreground: #5b6635;      /* tea_green-200 — muted olive ink */
-  --accent: #e9edc9;                /* beige — accent surface */
+  --muted: #f2f4df; /* beige-700 — muted surface */
+  --muted-foreground: #5b6635; /* tea_green-200 — muted olive ink */
+  --accent: #e9edc9; /* beige — accent surface */
   --accent-foreground: #2d331a;
-  --destructive: #b3452f;           /* terracotta */
+  --destructive: #b3452f; /* terracotta */
   --destructive-foreground: #fdf6e9;
-  --border: #e7d4bf;                /* warm bronze border */
+  --border: #e7d4bf; /* warm bronze border */
   --input: #e7d4bf;
-  --ring: #c58341;                  /* light_bronze-400 — focus ring */
+  --ring: #c58341; /* light_bronze-400 — focus ring */
   --radius: 0.75rem;
 
   --status-success: #4e7d3f;
@@ -50,7 +50,7 @@
   }
   /* subtle paper grain — sits behind all content */
   body::before {
-    content: '';
+    content: "";
     position: fixed;
     inset: 0;
     z-index: -1;
@@ -58,7 +58,10 @@
     opacity: 0.035;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
-  h1, h2, h3, h4 {
+  h1,
+  h2,
+  h3,
+  h4 {
     @apply font-display tracking-tight text-foreground;
   }
   ::selection {
@@ -146,7 +149,7 @@
   }
   .glass {
     @apply rounded-2xl border border-white/50 shadow-warm-lg backdrop-blur-xl;
-    background-color: rgba(255, 253, 246, 0.70); /* --card @ 70% */
+    background-color: rgba(255, 253, 246, 0.7); /* --card @ 70% */
   }
   .glass-soft {
     @apply rounded-xl border border-white/40 shadow-warm backdrop-blur-md;
@@ -172,7 +175,7 @@
     @apply relative transition-colors;
   }
   .link-underline::after {
-    content: '';
+    content: "";
     @apply absolute -bottom-0.5 left-0 h-px w-full origin-left scale-x-0 bg-current
            transition-transform duration-300 ease-out;
   }
@@ -195,14 +198,29 @@
    atmosphere's blurred glows. Cheap: the blurred bitmap is cached and merely
    transformed on the GPU. prefers-reduced-motion neutralises these globally. */
 @keyframes aurora-1 {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(28px, -22px, 0) scale(1.08); }
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(28px, -22px, 0) scale(1.08);
+  }
 }
 @keyframes aurora-2 {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(-24px, 18px, 0) scale(0.94); }
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-24px, 18px, 0) scale(0.94);
+  }
 }
 @keyframes aurora-3 {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(18px, 20px, 0) scale(1.06); }
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(18px, 20px, 0) scale(1.06);
+  }
 }
