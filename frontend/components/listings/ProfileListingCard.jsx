@@ -67,16 +67,16 @@ export default function ProfileListingCard({ listing, className }) {
           </span>
         )}
 
-        {/* condition grade — top-right glass chip */}
+        {/* condition grade — top-right white chip */}
         <span
           title={`Condition ${listing.condition}`}
-          className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border border-white/60 bg-card/80 text-xs font-bold text-foreground shadow-sm backdrop-blur-md"
+          className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border border-black/10 bg-white text-xs font-bold text-foreground shadow-sm"
         >
           {listing.condition}
         </span>
 
-        {/* price — frosted pill, lifts gently on hover */}
-        <span className="absolute bottom-2 left-2 rounded-full border border-white/55 bg-card/85 px-2.5 py-0.5 font-display text-sm font-semibold text-foreground shadow-warm backdrop-blur-md transition-transform duration-300 group-hover:-translate-y-0.5">
+        {/* price — white pill, lifts gently on hover */}
+        <span className="absolute bottom-2 left-2 rounded-full border border-black/10 bg-white px-2.5 py-0.5 font-display text-sm font-semibold text-foreground shadow-warm transition-transform duration-300 group-hover:-translate-y-0.5">
           {formatPrice(listing.asking_price)}
         </span>
 
