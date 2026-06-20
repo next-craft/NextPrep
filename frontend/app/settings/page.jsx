@@ -7,6 +7,7 @@ import api from '@/lib/api'
 import { useMe } from '@/lib/queries'
 import { toast } from '@/components/ui/sonner'
 import Avatar from '@/components/shared/avatar'
+import AvatarUploader from '@/components/shared/avatar-uploader'
 import { CITIES } from '@/constants/cities'
 
 export default function SettingsPage() {
@@ -98,9 +99,11 @@ export default function SettingsPage() {
         </div>
 
         <div>
-          <label htmlFor="avatar_url" className="label">Avatar URL</label>
-          <input id="avatar_url" className="input" value={form.avatar_url} onChange={set('avatar_url')} placeholder="https://…" />
-          <p className="mt-1 text-xs text-muted-foreground">Defaults to your Google photo. Paste a URL to override.</p>
+          <span className="label">Profile photo</span>
+          <AvatarUploader
+            value={form.avatar_url}
+            onChange={(url) => setForm((f) => ({ ...f, avatar_url: url }))}
+          />
         </div>
 
         <button type="submit" disabled={save.isPending} className="btn-primary">
