@@ -129,7 +129,10 @@ export default async function ListingsPage({ searchParams }) {
                 count={listings.length}
                 className="mb-4 hidden text-sm text-muted-foreground lg:block"
               />
-              <ListingGrid listings={listings} />
+              {/* Remount on any filter/search change so the staggered scroll-reveal
+                  runs fresh — otherwise a soft (same-route) navigation leaves the
+                  new cards stuck in their hidden (opacity-0) state. */}
+              <ListingGrid key={params.toString()} listings={listings} />
             </>
           )}
         </div>

@@ -61,6 +61,10 @@ export default function ListingFilters({ current = {}, onNavigate, showHeader = 
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
+            // key by the active query so the uncontrolled input re-syncs after a
+            // soft navigation (e.g. a search from the navbar) instead of showing
+            // stale text.
+            key={current.q || ''}
             id="f-q"
             className="input pl-9"
             defaultValue={current.q || ''}
