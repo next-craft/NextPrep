@@ -33,6 +33,13 @@ export default function Navbar() {
   const [authed, setAuthed] = useState(false)
   const [ready, setReady] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [query, setQuery] = useState('')
+
+  const onSearch = (e) => {
+    e.preventDefault()
+    const q = query.trim()
+    router.push(q ? `/listings?q=${encodeURIComponent(q)}` : '/listings')
+  }
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -97,13 +104,21 @@ export default function Navbar() {
           Next<span className="text-primary">Prep</span>
         </Link>
 
-        <Link
-          href="/listings"
-          className="ml-3 hidden flex-1 items-center gap-2 rounded-xl border border-light_bronze-600 bg-card/90 px-3.5 py-2 text-sm text-muted-foreground shadow-warm backdrop-blur-md transition-all hover:border-light_bronze-400 hover:bg-card hover:shadow-warm-lg sm:flex sm:max-w-md"
+        <form
+          onSubmit={onSearch}
+          role="search"
+          className="ml-3 hidden flex-1 items-center gap-2 rounded-xl border border-light_bronze-600 bg-card/90 px-3.5 py-2 text-sm shadow-warm backdrop-blur-md transition-all hover:border-light_bronze-400 hover:bg-card hover:shadow-warm-lg focus-within:border-light_bronze-400 focus-within:bg-card focus-within:shadow-warm-lg sm:flex sm:max-w-md"
         >
-          <Search className="h-4 w-4 text-primary" />
-          Search books, notes &amp; modules…
-        </Link>
+          <Search className="h-4 w-4 shrink-0 text-primary" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search books, notes & modules…"
+            aria-label="Search books, notes and modules"
+            className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none"
+          />
+        </form>
 
         <div className="ml-auto flex items-center gap-1.5">
           <Link href="/listings" className="btn-ghost px-3 sm:hidden" aria-label="Browse listings">
