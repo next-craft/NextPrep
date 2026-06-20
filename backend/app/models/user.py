@@ -24,6 +24,9 @@ class User(Base):
     books_sold    = Column(Integer, nullable=False, server_default="0")
     books_bought  = Column(Integer, nullable=False, server_default="0")
     created_at    = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text("now()"))
+    # One-time signup welcome email guard. Set TRUE the first time the welcome sweep
+    # (app/jobs/scheduler.py) emails the account; never reset, so later logins never resend.
+    welcome_email_sent = Column(Boolean, nullable=False, server_default="false")
 
     __table_args__ = (
         CheckConstraint(
