@@ -2,7 +2,7 @@ import { cache } from 'react'
 import { notFound } from 'next/navigation'
 import { MapPin, BadgeCheck, BookOpen, Star } from 'lucide-react'
 import Avatar from '@/components/shared/avatar'
-import ListingGrid from '@/components/listings/ListingGrid'
+import ProfileListingGrid from '@/components/listings/ProfileListingGrid'
 import { EmptyState } from '@/components/shared/states'
 import { Reveal, Stagger, StaggerItem } from '@/components/shared/motion'
 import { formatDate } from '@/lib/utils'
@@ -132,7 +132,7 @@ export default async function UserProfilePage({ params }) {
           Active listings
         </Reveal>
         {listings.length ? (
-          <ListingGrid listings={listings} />
+          <ProfileListingGrid listings={listings} />
         ) : (
           <EmptyState
             icon={BookOpen}
