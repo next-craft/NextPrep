@@ -16,7 +16,7 @@ import {
 import { m } from '@/components/shared/motion'
 import { EASE, SPRING } from '@/lib/motion'
 import api from '@/lib/api'
-import { formatPrice, listingStatus } from '@/lib/utils'
+import { cn, formatPrice, listingStatus } from '@/lib/utils'
 import { ConditionBadge, ListingTypeBadge } from '@/components/shared/badges'
 import StatusPill from '@/components/shared/status-pill'
 import {
@@ -40,10 +40,12 @@ import EditListingDialog from './EditListingDialog'
 import { useQueryClient } from '@tanstack/react-query'
 import { useMyListings } from '@/lib/queries'
 
+// Section accent colours mirror the "living status" palette in status-pill.jsx
+// so a seller can scan their inventory by colour alone.
 const GROUPS = [
-  { key: 'active', label: 'Active' },
-  { key: 'paused', label: 'Paused' },
-  { key: 'sold', label: 'Sold' },
+  { key: 'active', label: 'Active', accent: '#5b8a3c', tint: 'bg-[#eaf1de] text-[#3f6733] ring-[#cad8b0]' },
+  { key: 'paused', label: 'Paused', accent: '#b07d1e', tint: 'bg-[#fbf1d6] text-[#8a5e12] ring-[#ecd6a0]' },
+  { key: 'sold', label: 'Sold', accent: '#b3452f', tint: 'bg-[#f7e6e0] text-[#8f3322] ring-[#e4b3a6]' },
 ]
 
 export default function SellingTab() {
@@ -115,14 +117,29 @@ export default function SellingTab() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-9">
       {GROUPS.map(
-        ({ key, label }) =>
+        ({ key, label, accent, tint }) =>
           grouped[key].length > 0 && (
             <section key={key}>
-              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                {label} · {grouped[key].length}
-              </h3>
+              <header className="mb-3.5 flex items-center gap-3">
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: accent, boxShadow: `0 0 0 3px ${accent}22` }}
+                />
+                <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-foreground/70">
+                  {label}
+                </h3>
+                <span
+                  className={cn(
+                    'inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums ring-1 ring-inset',
+                    tint
+                  )}
+                >
+                  {grouped[key].length}
+                </span>
+                <span className="h-px flex-1 bg-gradient-to-r from-border to-transparent" />
+              </header>
               <div className="space-y-3">
                 <AnimatePresence mode="popLayout">
                   {grouped[key].map((l, i) => (
@@ -133,37 +150,69 @@ export default function SellingTab() {
                       animate={{ opacity: 1, y: 0, transition: { delay: i * 0.04, duration: 0.3, ease: EASE.warm } }}
                       exit={{ opacity: 0, scale: 0.96, x: -12, transition: { duration: 0.2, ease: EASE.warm } }}
                       whileHover={{ y: -2, transition: SPRING }}
-                      className="card flex items-center gap-4 p-3 sm:p-4"
+                      className="card group relative flex items-center gap-4 overflow-hidden p-3 pl-4 sm:p-4 sm:pl-5"
                     >
+                      {/* status accent rail */}
+                      <span
+                        aria-hidden
+                        className="absolute inset-y-0 left-0 w-1"
+                        style={{ backgroundColor: accent }}
+                      />
                       <Link
                         href={`/listings/${l.id}`}
-                        className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-papaya_whip-700 text-light_bronze-500"
+                        className="relative flex h-[68px] w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-lg bg-papaya_whip-700 text-light_bronze-500 ring-1 ring-black/5"
                       >
                         {l.images?.[0] ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={l.images[0]} alt="" className="h-full w-full object-cover" />
+                          <img
+                            src={l.images[0]}
+                            alt=""
+                            className={cn(
+                              'h-full w-full object-cover transition-transform duration-500 group-hover:scale-105',
+                              key === 'sold' && 'opacity-65 grayscale-[35%]'
+                            )}
+                          />
                         ) : (
                           <BookOpen className="h-6 w-6" />
                         )}
+                        {key === 'sold' && (
+                          <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                            <span className="-rotate-12 rounded-sm border-2 border-[#b3452f]/80 bg-[#fffdf6]/85 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[#8f3322] shadow-sm">
+                              Sold
+                            </span>
+                          </span>
+                        )}
                       </Link>
                       <div className="min-w-0 flex-1">
-                        <Link href={`/listings/${l.id}`} className="block truncate font-medium hover:underline">
+                        <Link
+                          href={`/listings/${l.id}`}
+                          className="block truncate font-medium leading-snug transition-colors hover:text-primary"
+                        >
                           {l.title}
                         </Link>
-                        <p className="mt-0.5 text-sm font-semibold">{formatPrice(l.asking_price)}</p>
                         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                           <StatusPill status={key} />
                           <ConditionBadge code={l.condition} showLabel={false} />
                           <ListingTypeBadge type={l.listing_type} />
                         </div>
                       </div>
-                      <RowActions
-                        status={key}
-                        onEdit={() => setEditing(l)}
-                        onPauseResume={() => pauseResume(l)}
-                        onRegenerate={() => regenerate(l)}
-                        onDelete={() => setDeleting(l)}
-                      />
+                      <div className="ml-auto flex shrink-0 items-center gap-1 self-stretch sm:gap-2">
+                        <div className="flex flex-col items-end justify-center">
+                          <span className="font-display text-base font-semibold leading-none tracking-tight text-foreground sm:text-lg">
+                            {formatPrice(l.asking_price)}
+                          </span>
+                          <span className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                            {key === 'sold' ? 'final price' : 'asking'}
+                          </span>
+                        </div>
+                        <RowActions
+                          status={key}
+                          onEdit={() => setEditing(l)}
+                          onPauseResume={() => pauseResume(l)}
+                          onRegenerate={() => regenerate(l)}
+                          onDelete={() => setDeleting(l)}
+                        />
+                      </div>
                     </m.div>
                   ))}
                 </AnimatePresence>
