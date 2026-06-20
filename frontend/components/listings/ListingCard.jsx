@@ -18,14 +18,14 @@ export default function ListingCard({ listing, className }) {
         className
       )}
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-papaya_whip-700">
+      <div className="relative aspect-[6/5] overflow-hidden bg-papaya_whip-700">
         {listing.images?.[0] ? (
           <Image
             src={listing.images[0]}
             alt={listing.title}
             fill
             unoptimized={!isOptimizedImageHost(listing.images[0])}
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 33vw"
             className={cn(
               'object-cover transition-transform duration-500 ease-out group-hover:scale-105',
               dimmed && 'opacity-70'
@@ -44,9 +44,9 @@ export default function ListingCard({ listing, className }) {
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-2.5 p-4">
+      <div className="flex flex-1 flex-col gap-1.5 p-3">
         <h3 className="line-clamp-2 font-medium leading-snug text-foreground">{listing.title}</h3>
-        <PriceBlock asking={listing.asking_price} original={listing.original_price} size="sm" />
+        <PriceBlock asking={listing.asking_price} original={listing.original_price} size="sm" showCompare={false} />
 
         <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-1">
           <ListingTypeBadge type={listing.listing_type} />

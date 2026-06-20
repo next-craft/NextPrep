@@ -7,8 +7,8 @@ export function Skeleton({ className }) {
 export function ListingCardSkeleton() {
   return (
     <div className="card overflow-hidden">
-      <div className="skeleton aspect-[4/3] rounded-none" />
-      <div className="space-y-3 p-4">
+      <div className="skeleton aspect-[6/5] rounded-none" />
+      <div className="space-y-2.5 p-3">
         <Skeleton className="h-4 w-3/4" />
         <Skeleton className="h-6 w-1/3" />
         <div className="flex gap-2">
@@ -22,7 +22,7 @@ export function ListingCardSkeleton() {
 
 export function ListingGridSkeleton({ count = 8, className }) {
   return (
-    <div className={cn('grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4', className)}>
+    <div className={cn('grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3', className)}>
       {Array.from({ length: count }).map((_, i) => (
         <ListingCardSkeleton key={i} />
       ))}

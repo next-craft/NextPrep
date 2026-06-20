@@ -35,7 +35,7 @@ function StepCard({ step, i, reduced }) {
       viewport={{ ...VIEWPORT }}
       transition={{ duration: 0.4, ease: EASE.warm, delay: i * 0.08 }}
       whileHover={reduced ? undefined : { y: -4 }}
-      className="card flex w-full max-w-[15rem] flex-col items-center justify-center gap-2.5 p-4 text-center lg:h-48 lg:w-36"
+      className="card flex w-full max-w-[15rem] flex-col items-center justify-center gap-2.5 p-4 text-center lg:h-48 lg:max-w-none lg:w-full"
     >
       <span className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
         <Icon className="h-5 w-5" />
@@ -110,11 +110,12 @@ export default function HowItWorks() {
         From finding the right book to confirming the exchange — five simple steps.
       </m.p>
 
-      {/* desktop: alternating zigzag joined by dashed S-curves */}
-      <div className="mt-12 hidden h-[232px] items-stretch justify-center lg:flex">
+      {/* desktop: alternating zigzag joined by dashed S-curves, spanning the
+          full container width (matching the boxes above) */}
+      <div className="mt-12 hidden h-[232px] items-stretch lg:flex">
         {STEPS.map((step, i) => (
           <div key={step.title} className="contents">
-            <div className={`flex w-36 ${i % 2 ? 'items-end' : 'items-start'}`}>
+            <div className={`flex flex-1 ${i % 2 ? 'items-end' : 'items-start'}`}>
               <StepCard step={step} i={i} reduced={reduced} />
             </div>
             {i < last && <CurveConnector down={i % 2 === 0} />}
