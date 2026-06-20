@@ -1,11 +1,10 @@
 import { cache } from 'react'
 import { notFound } from 'next/navigation'
-import { MapPin, BadgeCheck, BookOpen, Star } from 'lucide-react'
-import Avatar from '@/components/shared/avatar'
+import { BookOpen } from 'lucide-react'
+import ProfileHeader from '@/components/shared/profile-header'
 import ProfileListingGrid from '@/components/listings/ProfileListingGrid'
 import { EmptyState } from '@/components/shared/states'
-import { Reveal, Stagger, StaggerItem } from '@/components/shared/motion'
-import { formatDate } from '@/lib/utils'
+import { Reveal } from '@/components/shared/motion'
 import JsonLd from '@/components/shared/json-ld'
 
 export const revalidate = 0
@@ -93,39 +92,7 @@ export default async function UserProfilePage({ params }) {
   return (
     <div className="container py-8">
       <JsonLd data={[profileJsonLd, breadcrumbJsonLd]} />
-      <Stagger as="header" gap={0.1} className="flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
-        <StaggerItem>
-          <Avatar src={user.avatar_url} name={user.full_name} size={84} />
-        </StaggerItem>
-        <StaggerItem>
-          <h1 className="flex items-center justify-center gap-2 font-display text-2xl font-semibold sm:justify-start sm:text-3xl">
-            <span>{user.full_name}</span>
-            {user.is_verified && <BadgeCheck className="h-6 w-6 text-primary" />}
-          </h1>
-          <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-muted-foreground sm:justify-start">
-            {user.city && (
-              <span className="inline-flex items-center gap-1">
-                <MapPin className="h-4 w-4" /> {user.city}
-              </span>
-            )}
-            <span>
-              {user.books_sold} {user.books_sold === 1 ? 'sale' : 'sales'}
-            </span>
-            <span>
-              {user.books_bought} bought
-            </span>
-            {user.seller_rating != null && (
-              <span className="inline-flex items-center gap-1">
-                <Star className="h-4 w-4 fill-current text-light_bronze-400" /> {user.seller_rating}
-                {user.books_sold > 0 && (
-                  <span className="text-muted-foreground"> · {user.books_sold} verified</span>
-                )}
-              </span>
-            )}
-            {user.created_at && <span>Joined {formatDate(user.created_at)}</span>}
-          </div>
-        </StaggerItem>
-      </Stagger>
+      <ProfileHeader user={user} />
 
       <section className="mt-10">
         <Reveal inView as="h2" className="mb-4 font-display text-lg font-semibold">
