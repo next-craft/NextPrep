@@ -1,12 +1,18 @@
 'use client'
 import Link from 'next/link'
 import { AnimatePresence } from 'framer-motion'
-import { BookOpen, MessageCircle } from 'lucide-react'
-import { cn, formatRelativeTime, listingStatus } from '@/lib/utils'
+import { BookOpen, MessageCircle, ChevronRight } from 'lucide-react'
+import { cn, formatPrice, formatRelativeTime, listingStatus } from '@/lib/utils'
 import { EmptyState } from '@/components/shared/states'
 import StatusPill from '@/components/shared/status-pill'
 import { m } from '@/components/shared/motion'
 import { EASE, SPRING } from '@/lib/motion'
+
+// Accent rail colours mirror the "living status" palette (status-pill.jsx) so a
+// messages row scans the same way a Selling/Transactions row does. Unread wins
+// the rail — it's the single most actionable signal in the list.
+const STATUS_ACCENT = { active: '#5b8a3c', paused: '#b07d1e', sold: '#b3452f' }
+const NEUTRAL_ACCENT = '#c7b29a'
 
 /** Renders enriched conversations (listing summary + last message + unread). */
 export default function ConversationList({
@@ -32,6 +38,8 @@ export default function ConversationList({
         const time = formatRelativeTime(c.lastMessage?.created_at || c.created_at)
 
         const unread = c.unreadCount > 0
+        const price = c.listing?.asking_price
+        const accent = unread ? '#b3452f' : status ? STATUS_ACCENT[status] : NEUTRAL_ACCENT
 
         return (
           <m.div
@@ -42,47 +50,60 @@ export default function ConversationList({
             exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2 } }}
             whileHover={{ y: -2, transition: SPRING }}
             className={cn(
-              'card group relative flex items-center gap-3 overflow-hidden p-3 pl-4 transition-colors',
+              'card group relative flex items-center gap-4 overflow-hidden p-3 pl-4 transition-colors sm:pl-5',
               unread && 'bg-papaya_whip-800/60'
             )}
           >
-            {/* unread accent rail */}
-            {unread && (
-              <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-destructive" />
-            )}
-            <Link href={`/chat/${c.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-papaya_whip-700 text-light_bronze-500 ring-1 ring-black/5">
+            {/* status / unread accent rail */}
+            <span aria-hidden className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: accent }} />
+
+            <Link href={`/chat/${c.id}`} className="flex min-w-0 flex-1 items-center gap-3.5">
+              <div className="relative flex h-[60px] w-[60px] shrink-0 items-center justify-center overflow-hidden rounded-lg bg-papaya_whip-700 text-light_bronze-500 ring-1 ring-black/5">
                 {c.listing?.images?.[0] ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={c.listing.images[0]}
                     alt=""
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    className={cn(
+                      'h-full w-full object-cover transition-transform duration-500 group-hover:scale-105',
+                      status === 'sold' && 'opacity-65 grayscale-[35%]'
+                    )}
                   />
                 ) : (
                   <BookOpen className="h-6 w-6" />
                 )}
               </div>
+
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-2">
-                  <p className={cn('truncate', unread ? 'font-semibold' : 'font-medium')}>
+                  <p className={cn('truncate leading-snug', unread ? 'font-semibold' : 'font-medium')}>
                     {removed ? 'Listing removed' : c.listing.title}
                   </p>
                   <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">{time}</span>
                 </div>
                 <p
                   className={cn(
-                    'mt-0.5 flex items-center gap-1.5 truncate text-sm',
+                    'mt-1 flex items-center gap-1.5 truncate text-sm',
                     unread ? 'font-medium text-foreground' : 'text-muted-foreground'
                   )}
                 >
-                  {unread && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />}
+                  {unread && (
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
+                  )}
                   <span className="truncate">{lastBody}</span>
                 </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {status && <StatusPill status={status} />}
+                  {!removed && typeof price === 'number' && (
+                    <span className="font-display text-sm font-semibold tracking-tight text-foreground/85">
+                      {formatPrice(price)}
+                    </span>
+                  )}
+                </div>
               </div>
             </Link>
 
-            <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <div className="flex shrink-0 flex-col items-end justify-center gap-2 self-stretch">
               {unread && (
                 <m.span
                   key={c.unreadCount}
@@ -95,11 +116,12 @@ export default function ConversationList({
                   <span className="relative">{c.unreadCount}</span>
                 </m.span>
               )}
-              {status && <StatusPill status={status} />}
-              {isBuyer && status === 'active' && (
+              {isBuyer && status === 'active' ? (
                 <Link href={`/listings/${c.listing_id}`} className="btn-primary h-8 px-3 text-xs">
                   Buy Now
                 </Link>
+              ) : (
+                <ChevronRight className="h-4 w-4 text-muted-foreground/50 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-muted-foreground" />
               )}
             </div>
           </m.div>
