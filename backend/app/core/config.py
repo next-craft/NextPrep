@@ -15,7 +15,10 @@ CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
 CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+# Fail secure: default to production so a deploy that forgets to set ENVIRONMENT does
+# NOT silently enable /docs, /openapi.json, and SQL echo (which would log user rows).
+# Local development must set ENVIRONMENT=development explicitly.
+ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
 
 _REQUIRED = [
     "NEXT_PUBLIC_SUPABASE_URL",
@@ -23,6 +26,10 @@ _REQUIRED = [
     "DATABASE_URL",
     "REDIS_URL",
     "RESEND_API_KEY",
+    # Image upload is a core feature — fail fast at boot rather than at first upload.
+    "CLOUDINARY_CLOUD_NAME",
+    "CLOUDINARY_API_KEY",
+    "CLOUDINARY_API_SECRET",
 ]
 _missing = [k for k in _REQUIRED if not os.getenv(k)]
 if _missing:

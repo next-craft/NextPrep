@@ -24,7 +24,12 @@ if not _PASSKEY_HMAC_SECRET or len(_PASSKEY_HMAC_SECRET) < 64:
 
 
 def _get_jwks_sync():
-    return requests.get(JWKS_URL).json()
+    # Timeout is mandatory: this runs on every authenticated request (no JWKS cache in
+    # v1), so a hung Supabase endpoint without it would exhaust the executor thread pool
+    # and stall all auth.
+    resp = requests.get(JWKS_URL, timeout=5)
+    resp.raise_for_status()
+    return resp.json()
 
 
 async def _get_jwks():
@@ -41,9 +46,17 @@ async def verify_token(authorization: str = Header(None)):
         header = jwt.get_unverified_header(token)
         kid = header.get("kid")
 
-        jwks = await _get_jwks()
+        try:
+            jwks = await _get_jwks()
+        except Exception as e:
+            # A network/timeout/non-200/malformed-JSON failure from the JWKS endpoint is
+            # an auth-infrastructure outage, not a bad token. Surface 503 (so it isn't
+            # mistaken for "invalid token") and log it per the "log every JWT failure" rule.
+            logger.error("JWKS fetch failed: %s", str(e))
+            raise HTTPException(status_code=503, detail="Authentication temporarily unavailable")
+
         key = next(
-            (k for k in jwks["keys"] if k["kid"] == kid),
+            (k for k in jwks.get("keys", []) if k.get("kid") == kid),
             None
         )
 
@@ -55,7 +68,9 @@ async def verify_token(authorization: str = Header(None)):
             token,
             key,
             algorithms=["ES256"],
-            audience="authenticated"
+            audience="authenticated",
+            issuer=f"{_SUPABASE_URL}/auth/v1",
+            options={"require": ["exp", "sub", "aud", "iss"]},
         )
         return payload
 

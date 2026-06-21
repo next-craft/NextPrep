@@ -1,0 +1,24 @@
+# Backend runtime dependencies — pinned source of truth (keep in sync with
+# backend/pyproject.toml). Versions reflect the project venv. Install with:
+#   .venv\Scripts\pip install -r requirements.txt
+#
+# NOTE: razorpay and pyngrok may be present in some local venvs but are intentionally
+# NOT listed here — the platform processes no payments (no payment SDK), per CLAUDE.md.
+
+fastapi==0.136.3
+uvicorn[standard]==0.49.0
+sqlalchemy[asyncio]==2.0.50
+psycopg[binary]==3.3.4
+alembic==1.18.4
+pydantic==2.13.4
+pydantic-settings==2.14.1
+python-jose[cryptography]==3.5.0
+httpx==0.28.1
+requests==2.34.2
+python-dotenv==1.2.2
+supabase==2.31.0
+resend==2.30.1
+redis==8.0.0
+APScheduler==3.11.2
+cloudinary==1.44.2
+python-multipart==0.0.32

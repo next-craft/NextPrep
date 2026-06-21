@@ -64,6 +64,7 @@ export default function ConversationList({
                   <img
                     src={c.listing.images[0]}
                     alt=""
+                    referrerPolicy="no-referrer"
                     className={cn(
                       'h-full w-full object-cover transition-transform duration-500 group-hover:scale-105',
                       status === 'sold' && 'opacity-65 grayscale-[35%]'

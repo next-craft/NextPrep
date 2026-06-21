@@ -7,7 +7,10 @@ from pydantic import BaseModel, Field
 
 class VerifyPasskeyRequest(BaseModel):
     listing_id: uuid.UUID
-    passkey: str
+    # Exactly 8 digits. Rejecting malformed input with 422 before any HMAC work avoids
+    # CPU-amplification from oversized payloads and treats junk as a bad request, not a
+    # wasted passkey attempt.
+    passkey: str = Field(..., min_length=8, max_length=8, pattern=r"^\d{8}$")
 
 
 class CompleteTransactionResponse(BaseModel):

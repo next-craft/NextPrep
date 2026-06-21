@@ -13,6 +13,17 @@ from app.core.security import generate_passkey, hash_passkey
 
 logger = logging.getLogger(__name__)
 
+# Public list bounds — keep the result set finite so a single request can't return the
+# whole table.
+DEFAULT_LISTINGS_LIMIT = 50
+MAX_LISTINGS_LIMIT = 100
+
+
+def _ilike_escape(term: str) -> str:
+    """Escape LIKE/ILIKE metacharacters in user input so `%` and `_` are matched
+    literally (no leading-wildcard scan abuse). Pair with ilike(..., escape='\\')."""
+    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
 
 async def create_listing(
     db: AsyncSession, seller_id: str, data: ListingCreate
@@ -53,24 +64,27 @@ async def get_listings(
     condition: str | None = None,
     listing_type: str | None = None,
     seller_id: str | None = None,
+    limit: int = DEFAULT_LISTINGS_LIMIT,
+    offset: int = 0,
 ) -> list[Listing]:
     stmt = select(Listing).where(
         Listing.is_available == True,
         Listing.deleted_at == None,
     )
     if q:
+        pattern = f"%{_ilike_escape(q)}%"
         stmt = stmt.where(
             or_(
-                Listing.title.ilike(f"%{q}%"),
-                Listing.description.ilike(f"%{q}%"),
+                Listing.title.ilike(pattern, escape="\\"),
+                Listing.description.ilike(pattern, escape="\\"),
             )
         )
     if exam_category:
         stmt = stmt.where(Listing.exam_category == exam_category)
     if subject:
-        stmt = stmt.where(Listing.subject.ilike(f"%{subject}%"))
+        stmt = stmt.where(Listing.subject.ilike(f"%{_ilike_escape(subject)}%", escape="\\"))
     if city:
-        stmt = stmt.where(Listing.city.ilike(f"%{city}%"))
+        stmt = stmt.where(Listing.city.ilike(f"%{_ilike_escape(city)}%", escape="\\"))
     if condition:
         stmt = stmt.where(Listing.condition == condition)
     if listing_type:
@@ -78,7 +92,9 @@ async def get_listings(
     if seller_id:
         stmt = stmt.where(Listing.seller_id == UUID(seller_id))
 
-    stmt = stmt.order_by(Listing.created_at.desc())
+    limit = max(1, min(limit, MAX_LISTINGS_LIMIT))
+    offset = max(0, offset)
+    stmt = stmt.order_by(Listing.created_at.desc()).limit(limit).offset(offset)
     result = await db.execute(stmt)
     return result.scalars().all()
 
@@ -109,9 +125,13 @@ async def record_unique_view(db: AsyncSession, listing: Listing, viewer_id: str)
         pg_insert(ListingView)
         .values(listing_id=listing.id, viewer_id=UUID(viewer_id))
         .on_conflict_do_nothing(index_elements=["listing_id", "viewer_id"])
+        .returning(ListingView.listing_id)
     )
-    result = await db.execute(insert_stmt)
-    first_time = bool(result.rowcount)  # 1 when inserted, 0 when already seen
+    # RETURNING is the reliable first-time signal: a row comes back only when the row
+    # was actually inserted; on conflict (already-seen viewer) nothing is returned.
+    # `rowcount` is NOT reliable for ON CONFLICT DO NOTHING across drivers/poolers — it
+    # could report the row as affected even on conflict, double-counting views.
+    first_time = (await db.execute(insert_stmt)).first() is not None
 
     if first_time:
         await db.execute(
@@ -120,11 +140,13 @@ async def record_unique_view(db: AsyncSession, listing: Listing, viewer_id: str)
             .values(views=Listing.views + 1)
             .execution_options(synchronize_session=False)
         )
-        # Reflect the new count in the in-memory instance for the response
-        # (expire_on_commit=False keeps it after commit, no extra SELECT).
-        listing.views = (listing.views or 0) + 1
-
-    await db.commit()
+        await db.commit()
+        # Load the authoritative committed count into the in-memory instance for the
+        # response. A single source of truth (the DB) — avoids the previous double-write
+        # where an explicit UPDATE and a manual attribute set both flushed.
+        await db.refresh(listing, ["views"])
+    else:
+        await db.commit()
 
 
 async def update_listing(

@@ -4,12 +4,14 @@
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.users (id, full_name, avatar_url, is_verified)
+    -- is_verified is NOT set here: it is an EARNED badge (books_sold >= 10), no longer
+    -- derived from the OAuth email_verified claim (which would grant it to nearly every
+    -- user). It defaults to FALSE at the DB level. See migration 0006.
+    INSERT INTO public.users (id, full_name, avatar_url)
     VALUES (
         NEW.id,
         COALESCE(NEW.raw_user_meta_data->>'full_name', 'User'),
-        NEW.raw_user_meta_data->>'avatar_url',
-        COALESCE((NEW.raw_user_meta_data->>'email_verified')::boolean, FALSE)
+        NEW.raw_user_meta_data->>'avatar_url'
     );
     RETURN NEW;
 END;

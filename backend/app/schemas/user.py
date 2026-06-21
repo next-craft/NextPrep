@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class UserMe(BaseModel):
@@ -34,8 +34,8 @@ class UserPublic(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    full_name: Optional[str] = None
-    city: Optional[str] = None
+    full_name: Optional[str] = Field(None, max_length=80)
+    city: Optional[str] = Field(None, max_length=80)
     avatar_url: Optional[str] = None
 
     @field_validator("full_name")
@@ -46,3 +46,17 @@ class UserUpdate(BaseModel):
         if v is None or not v.strip():
             raise ValueError("full_name must be non-empty")
         return v.strip()
+
+    @field_validator("avatar_url")
+    @classmethod
+    def avatar_url_safe(cls, v: Optional[str]) -> Optional[str]:
+        # Server-side boundary (the client regex is not one): https only, so a stored
+        # javascript:/data: scheme can never reach an <img src>/href, and plaintext http
+        # (which the frontend CSP blocks from rendering anyway) is rejected at the source.
+        # Bounded length to avoid absurd payloads.
+        if v is None or v == "":
+            return v
+        v = v.strip()
+        if not v.startswith("https://") or len(v) > 2048:
+            raise ValueError("avatar_url must be an https URL under 2048 characters")
+        return v

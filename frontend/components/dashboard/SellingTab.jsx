@@ -167,6 +167,7 @@ export default function SellingTab() {
                           <img
                             src={l.images[0]}
                             alt=""
+                            referrerPolicy="no-referrer"
                             className={cn(
                               'h-full w-full object-cover transition-transform duration-500 group-hover:scale-105',
                               key === 'sold' && 'opacity-65 grayscale-[35%]'

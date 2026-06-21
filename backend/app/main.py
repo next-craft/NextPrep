@@ -4,11 +4,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from app.core.config import FRONTEND_URL, ENVIRONMENT
+from app.core.logging import configure_logging
 from app.core.redis import create_redis
 from app.jobs.scheduler import scheduler
 from app.routers import chat, listings, reports, transactions, users
 import logging
 
+configure_logging()  # ensure app.* audit logs (transactions, JWT/Redis failures) are emitted
 logger = logging.getLogger(__name__)
 
 
@@ -21,7 +23,16 @@ async def lifespan(app: FastAPI):
     await app.state.redis.aclose()
 
 
-app = FastAPI(title="SMEI API", docs_url="/docs" if ENVIRONMENT == "development" else None, lifespan=lifespan)
+_DEV = ENVIRONMENT == "development"
+# In production every schema/docs surface is disabled (not just /docs): /redoc and the
+# raw /openapi.json would otherwise leak the full API shape.
+app = FastAPI(
+    title="SMEI API",
+    docs_url="/docs" if _DEV else None,
+    redoc_url="/redoc" if _DEV else None,
+    openapi_url="/openapi.json" if _DEV else None,
+    lifespan=lifespan,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,6 +41,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def security_headers(request, call_next):
+    """Defense-in-depth response headers for the JSON API (the frontend sets its own
+    CSP/X-Frame-Options via next.config.js)."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    if ENVIRONMENT != "development":
+        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+    return response
 
 app.include_router(listings.router, prefix="/v1")
 app.include_router(transactions.router, prefix="/v1")

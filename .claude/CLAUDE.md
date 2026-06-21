@@ -254,7 +254,9 @@ is_verified    — blue badge, auto-set TRUE once books_sold >= 10 (no longer OA
 passkey_attempts:{listing_id}:{buyer_id}    integer, TTL 7 days (3 attempts max)
 chat_rate:{conversation_id}:{sender_id}     integer, TTL 1 hour
 chat:{conversation_id}                      cached messages, TTL 30s
-report_rate:{reporter_id}                   integer, TTL 1 hour
+report_rate:{reporter_id}                   integer, TTL 1 hour (5 reports max)
+conv_create_rate:{buyer_id}                 integer, TTL 1 hour (20 new conversations max — caps seller-email amplification)
+listing_create_rate:{seller_id}             integer, TTL 1 hour (20 listings max)
 ```
 
 ---
@@ -328,7 +330,7 @@ API_URL=http://localhost:8000/v1
 9. `hmac.compare_digest` for all hash comparisons — never `==`
 10. Listing completion is atomic and one-way: `UPDATE ... WHERE is_available = TRUE` selects the single winning buyer; a sold listing can never be reopened
 11. Only the buyer can rate, only after a verified passkey, once per transaction (DB-enforced)
-12. Hide listing immediately on piracy/copyright report
+12. Reports never auto-hide a listing — they feed a manual moderation queue (a single report must not be a takedown lever for griefing). Pirated/copyright/abusive content is hidden manually via the Supabase dashboard (see Moderation). Reports are rate-limited to 5/reporter/hour and never expose report counts or other reporters.
 
 ---
 

@@ -84,6 +84,7 @@ def _make_valid_jwt(jose_private_key, kid: str, sub: str, email: str) -> str:
         "sub": sub,
         "email": email,
         "aud": "authenticated",
+        "iss": f"{os.environ['NEXT_PUBLIC_SUPABASE_URL']}/auth/v1",
         "iat": now,
         "exp": now + 3600,
         "role": "authenticated",

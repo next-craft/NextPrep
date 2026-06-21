@@ -21,12 +21,13 @@ import sys
 # ---------------------------------------------------------------------------
 os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://test:test@localhost:5432/test")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379")
-os.environ.setdefault("RAZORPAY_KEY_ID", "rzp_test_dummy")
-os.environ.setdefault("RAZORPAY_KEY_SECRET", "dummy_secret")
-os.environ.setdefault("RAZORPAY_WEBHOOK_SECRET", "dummy_webhook_secret")
 os.environ.setdefault("PASSKEY_HMAC_SECRET", "0" * 64)
 os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "dummy_service_role_key")
 os.environ.setdefault("RESEND_API_KEY", "re_dummy")
+os.environ.setdefault("NEXT_PUBLIC_SUPABASE_URL", "https://dummy.supabase.co")
+os.environ.setdefault("CLOUDINARY_CLOUD_NAME", "dummy_cloud")
+os.environ.setdefault("CLOUDINARY_API_KEY", "dummy_api_key")
+os.environ.setdefault("CLOUDINARY_API_SECRET", "dummy_api_secret")
 
 # ---------------------------------------------------------------------------
 # Now safe to import app modules.
@@ -218,11 +219,22 @@ class TestUserColumns:
     def test_user_has_seller_rating(self):
         assert _column(User, "seller_rating") is not None
 
-    def test_user_has_total_sales(self):
-        assert _column(User, "total_sales") is not None
+    def test_user_has_books_sold(self):
+        assert _column(User, "books_sold") is not None
+
+    def test_user_has_books_bought(self):
+        assert _column(User, "books_bought") is not None
 
     def test_user_has_created_at(self):
         assert _column(User, "created_at") is not None
+
+    def test_user_has_no_total_sales_column(self):
+        # Renamed to books_sold in the no-payments pivot (migration 0006)
+        assert _column(User, "total_sales") is None
+
+    def test_user_has_no_razorpay_account_id_column(self):
+        # Razorpay linked-account id removed in the no-payments pivot (migration 0006)
+        assert _column(User, "razorpay_account_id") is None
 
     def test_user_has_no_email_column(self):
         assert _column(User, "email") is None
@@ -353,35 +365,40 @@ class TestTransactionColumns:
     def test_transaction_has_seller_id(self):
         assert _column(Transaction, "seller_id") is not None
 
-    def test_transaction_has_amount_rupees(self):
-        assert _column(Transaction, "amount_rupees") is not None
-
-    def test_transaction_has_platform_fee_rupees(self):
-        assert _column(Transaction, "platform_fee_rupees") is not None
-
-    def test_transaction_has_seller_payout_rupees(self):
-        assert _column(Transaction, "seller_payout_rupees") is not None
-
-    def test_transaction_has_razorpay_payment_link_id(self):
-        assert _column(Transaction, "razorpay_payment_link_id") is not None
-
-    def test_transaction_has_razorpay_payment_link_url(self):
-        assert _column(Transaction, "razorpay_payment_link_url") is not None
-
-    def test_transaction_has_razorpay_payment_id(self):
-        assert _column(Transaction, "razorpay_payment_id") is not None
-
-    def test_transaction_has_status(self):
-        assert _column(Transaction, "status") is not None
-
     def test_transaction_has_created_at(self):
         assert _column(Transaction, "created_at") is not None
 
-    def test_transaction_has_released_at(self):
-        assert _column(Transaction, "released_at") is not None
+    # --- No-payments pivot (migration 0006): a transactions row is now purely a
+    #     record of a verified, completed in-person exchange. All payment/Razorpay
+    #     state was dropped. The platform processes no money. ---
 
-    def test_transaction_has_refunded_at(self):
-        assert _column(Transaction, "refunded_at") is not None
+    def test_transaction_has_no_amount_rupees_column(self):
+        assert _column(Transaction, "amount_rupees") is None
+
+    def test_transaction_has_no_platform_fee_rupees_column(self):
+        assert _column(Transaction, "platform_fee_rupees") is None
+
+    def test_transaction_has_no_seller_payout_rupees_column(self):
+        assert _column(Transaction, "seller_payout_rupees") is None
+
+    def test_transaction_has_no_razorpay_payment_link_id_column(self):
+        assert _column(Transaction, "razorpay_payment_link_id") is None
+
+    def test_transaction_has_no_razorpay_payment_link_url_column(self):
+        assert _column(Transaction, "razorpay_payment_link_url") is None
+
+    def test_transaction_has_no_razorpay_payment_id_column(self):
+        assert _column(Transaction, "razorpay_payment_id") is None
+
+    def test_transaction_has_no_status_column(self):
+        # No pending/initiated/released/cancelled state — a row IS a completed sale
+        assert _column(Transaction, "status") is None
+
+    def test_transaction_has_no_released_at_column(self):
+        assert _column(Transaction, "released_at") is None
+
+    def test_transaction_has_no_refunded_at_column(self):
+        assert _column(Transaction, "refunded_at") is None
 
 
 class TestSellerRatingColumns:
@@ -399,6 +416,10 @@ class TestSellerRatingColumns:
 
     def test_seller_rating_has_rating(self):
         assert _column(SellerRating, "rating") is not None
+
+    def test_seller_rating_has_review(self):
+        # Optional free-text review added in the no-payments pivot (migration 0006)
+        assert _column(SellerRating, "review") is not None
 
     def test_seller_rating_has_created_at(self):
         assert _column(SellerRating, "created_at") is not None
@@ -464,15 +485,6 @@ class TestNullability:
     def test_message_sender_id_is_not_nullable(self):
         assert _column(Message, "sender_id").nullable is False
 
-    def test_transaction_amount_rupees_is_not_nullable(self):
-        assert _column(Transaction, "amount_rupees").nullable is False
-
-    def test_transaction_seller_payout_rupees_is_not_nullable(self):
-        assert _column(Transaction, "seller_payout_rupees").nullable is False
-
-    def test_transaction_platform_fee_rupees_is_not_nullable(self):
-        assert _column(Transaction, "platform_fee_rupees").nullable is False
-
     def test_transaction_buyer_id_is_not_nullable(self):
         assert _column(Transaction, "buyer_id").nullable is False
 
@@ -508,23 +520,18 @@ class TestServerDefaults:
         assert col.server_default is not None
         assert "false" in str(col.server_default.arg).lower()
 
-    def test_transaction_status_server_default_is_initiated(self):
-        col = _column(Transaction, "status")
-        assert col.server_default is not None
-        assert "initiated" in str(col.server_default.arg)
-
-    def test_transaction_platform_fee_server_default_is_zero(self):
-        col = _column(Transaction, "platform_fee_rupees")
-        assert col.server_default is not None
-        assert str(col.server_default.arg) == "0"
-
     def test_user_is_verified_server_default_is_false(self):
         col = _column(User, "is_verified")
         assert col.server_default is not None
         assert "false" in str(col.server_default.arg).lower()
 
-    def test_user_total_sales_server_default_is_zero(self):
-        col = _column(User, "total_sales")
+    def test_user_books_sold_server_default_is_zero(self):
+        col = _column(User, "books_sold")
+        assert col.server_default is not None
+        assert str(col.server_default.arg) == "0"
+
+    def test_user_books_bought_server_default_is_zero(self):
+        col = _column(User, "books_bought")
         assert col.server_default is not None
         assert str(col.server_default.arg) == "0"
 
@@ -559,14 +566,18 @@ class TestCheckConstraintNames:
     def test_listing_has_sold_xor_deleted(self):
         assert "sold_xor_deleted" in _check_constraint_names(Listing)
 
-    def test_transaction_has_ck_transaction_status(self):
-        assert "ck_transaction_status" in _check_constraint_names(Transaction)
+    def test_listing_has_ck_original_price_positive(self):
+        assert "ck_original_price_positive" in _check_constraint_names(Listing)
 
-    def test_transaction_has_ck_amount_positive(self):
-        assert "ck_amount_positive" in _check_constraint_names(Transaction)
+    def test_transaction_has_no_payment_check_constraints(self):
+        # Payment-era checks dropped in the no-payments pivot (migration 0006)
+        names = _check_constraint_names(Transaction)
+        assert "ck_transaction_status" not in names
+        assert "ck_amount_positive" not in names
+        assert "ck_payout_nonnegative" not in names
 
-    def test_transaction_has_ck_payout_nonnegative(self):
-        assert "ck_payout_nonnegative" in _check_constraint_names(Transaction)
+    def test_user_has_ck_seller_rating_range(self):
+        assert "ck_seller_rating_range" in _check_constraint_names(User)
 
     def test_seller_rating_has_ck_rating_range(self):
         assert "ck_rating_range" in _check_constraint_names(SellerRating)
@@ -669,7 +680,7 @@ class TestForeignKeyTargets:
 
 
 # ===========================================================================
-# 10. PRICE INTEGRITY — asking_price and amount_rupees must be Integer type
+# 10. PRICE INTEGRITY — listing prices must be whole-rupee Integer type
 # ===========================================================================
 
 class TestPriceColumnTypes:
@@ -685,42 +696,14 @@ class TestPriceColumnTypes:
             f"original_price must be Integer (whole rupees), got {type(col.type)}"
         )
 
-    def test_transaction_amount_rupees_is_integer_type(self):
-        col = _column(Transaction, "amount_rupees")
-        assert isinstance(col.type, Integer), (
-            f"amount_rupees must be Integer (whole rupees), got {type(col.type)}"
-        )
-
-    def test_transaction_platform_fee_rupees_is_integer_type(self):
-        col = _column(Transaction, "platform_fee_rupees")
-        assert isinstance(col.type, Integer), (
-            f"platform_fee_rupees must be Integer, got {type(col.type)}"
-        )
-
-    def test_transaction_seller_payout_rupees_is_integer_type(self):
-        col = _column(Transaction, "seller_payout_rupees")
-        assert isinstance(col.type, Integer), (
-            f"seller_payout_rupees must be Integer, got {type(col.type)}"
-        )
-
     def test_listing_asking_price_is_not_float(self):
         from sqlalchemy import Float
         col = _column(Listing, "asking_price")
         assert not isinstance(col.type, Float)
 
-    def test_transaction_amount_rupees_is_not_float(self):
-        from sqlalchemy import Float
-        col = _column(Transaction, "amount_rupees")
-        assert not isinstance(col.type, Float)
-
     def test_listing_asking_price_is_not_numeric(self):
         from sqlalchemy import Numeric
         col = _column(Listing, "asking_price")
-        assert not isinstance(col.type, Numeric)
-
-    def test_transaction_amount_rupees_is_not_numeric(self):
-        from sqlalchemy import Numeric
-        col = _column(Transaction, "amount_rupees")
         assert not isinstance(col.type, Numeric)
 
 
@@ -869,33 +852,12 @@ class TestCheckConstraintContent:
         assert "is_available" in expr
         assert "sold_at" in expr
 
-    def test_ck_transaction_status_allows_only_three_valid_statuses(self):
-        expr = self._get_check(Transaction, "ck_transaction_status")
+    def test_sold_xor_deleted_references_sold_at_and_deleted_at(self):
+        # A listing can be sold OR soft-deleted, never both (migration 0006-era model)
+        expr = self._get_check(Listing, "sold_xor_deleted")
         assert expr is not None
-        assert "initiated" in expr
-        assert "released" in expr
-        assert "cancelled" in expr
-
-    def test_ck_transaction_status_does_not_include_disputed(self):
-        expr = self._get_check(Transaction, "ck_transaction_status")
-        assert expr is not None
-        assert "disputed" not in expr
-
-    def test_ck_transaction_status_does_not_include_confirmed(self):
-        expr = self._get_check(Transaction, "ck_transaction_status")
-        assert expr is not None
-        assert "confirmed" not in expr
-
-    def test_ck_transaction_status_does_not_include_pending(self):
-        expr = self._get_check(Transaction, "ck_transaction_status")
-        assert expr is not None
-        assert "pending" not in expr
-
-    def test_ck_payout_nonnegative_uses_gte_zero(self):
-        expr = self._get_check(Transaction, "ck_payout_nonnegative")
-        assert expr is not None
-        assert "seller_payout_rupees" in expr
-        assert ">=" in expr
+        assert "sold_at" in expr
+        assert "deleted_at" in expr
 
     def test_ck_rating_range_is_between_1_and_5(self):
         expr = self._get_check(SellerRating, "ck_rating_range")
@@ -941,23 +903,45 @@ class TestPrimaryKeyTypes:
 
 
 # ===========================================================================
-# 15. TRANSACTION RAZORPAY COLUMNS — unique constraints at column level
+# 15. TRANSACTION-PER-LISTING UNIQUENESS — a listing sells exactly once, so at
+#     most one verified transaction may reference a given listing. After the
+#     no-payments pivot (migration 0006) this is enforced by a partial unique
+#     index `uq_transaction_per_listing` (WHERE listing_id IS NOT NULL),
+#     declared on the model via Index(...). The old per-column Razorpay unique
+#     constraints were removed along with those columns.
 # ===========================================================================
 
-class TestTransactionUniqueColumns:
-    def test_razorpay_payment_link_id_is_unique(self):
-        col = _column(Transaction, "razorpay_payment_link_id")
-        assert col.unique is True
+class TestTransactionUniqueness:
+    def _indexes(self):
+        from sqlalchemy import Index
+        args = getattr(Transaction, "__table_args__", ())
+        if isinstance(args, dict):
+            return []
+        return [item for item in args if isinstance(item, Index)]
 
-    def test_razorpay_payment_id_is_unique(self):
-        col = _column(Transaction, "razorpay_payment_id")
-        assert col.unique is True
+    def _uq_per_listing(self):
+        for idx in self._indexes():
+            if idx.name == "uq_transaction_per_listing":
+                return idx
+        return None
 
-    def test_razorpay_payment_link_id_is_nullable(self):
-        # Not every transaction starts with a payment link ID populated
-        col = _column(Transaction, "razorpay_payment_link_id")
-        assert col.nullable is True
+    def test_uq_transaction_per_listing_index_exists(self):
+        assert self._uq_per_listing() is not None
 
-    def test_razorpay_payment_id_is_nullable(self):
-        col = _column(Transaction, "razorpay_payment_id")
-        assert col.nullable is True
+    def test_uq_transaction_per_listing_is_unique(self):
+        idx = self._uq_per_listing()
+        assert idx is not None
+        assert idx.unique is True
+
+    def test_uq_transaction_per_listing_covers_listing_id(self):
+        idx = self._uq_per_listing()
+        assert idx is not None
+        col_names = {c.key for c in idx.columns}
+        assert "listing_id" in col_names
+
+    def test_uq_transaction_per_listing_is_partial_on_non_null_listing(self):
+        # NULL listing_id (set when a sold listing is deleted) must not be deduped.
+        idx = self._uq_per_listing()
+        assert idx is not None
+        where = str(idx.dialect_options["postgresql"].get("where", ""))
+        assert "listing_id" in where

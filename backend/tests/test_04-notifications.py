@@ -1,18 +1,21 @@
 """
 Spec-driven tests for Spec 04 — Notifications.
 
-Test surface:
+Test surface (NO-PAYMENTS model — see CLAUDE.md):
   Email 1 — First-message email  (send_new_message_email, chat_service._notify_first_message)
-  Email 2 — Sale-complete email  (send_sale_complete, payments._notify_seller_of_sale)
-  Email 3 — Abandoned-checkout email  (send_abandoned_checkout_email, scheduler job)
+  Email 2 — Sale-complete email  (send_sale_complete, transactions._notify_seller_of_sale)
   Email 4 — Listing-removed email  (send_listing_removed_email — isolated, no trigger wired)
 
+The platform processes no payment. The sale-complete email is triggered by passkey
+verification (transactions router), carries NO amount/payout, and the seller is
+notified by listing title only. The former payment-era abandoned-checkout email
+(Email 3) and its scheduler job no longer exist and are not tested here.
+
 Cross-cutting:
-  - From address: "NextPrep <no-reply@yourdomain.com>"
+  - From address: "NextPrep <no-reply@nextprep.online>"
   - Fire-and-forget: Resend exceptions swallowed, never re-raised
   - Logging: INFO on success, ERROR on failure, WARNING on unresolved email
   - Security: email never in API responses, service-role key never in request path
-  - Redis: abandoned_notified:{listing_id}, TTL 21600s, atomic SET NX
 
 All Resend calls are patched — no real network/email calls.
 All fetch_user_email calls are patched where needed.
@@ -23,8 +26,8 @@ pytest-asyncio is used for coroutine tests.
 
 import logging
 import uuid
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -41,6 +44,7 @@ LISTING_ID = uuid.uuid4()
 TRANSACTION_ID = uuid.uuid4()
 CONVERSATION_ID = uuid.uuid4()
 SELLER_ID = uuid.uuid4()
+LISTING_TITLE = "HC Verma Concepts of Physics Vol 1"
 
 
 # ===========================================================================
@@ -233,6 +237,10 @@ class TestFirstMessageAtomicFlagGuard:
         select_result.scalar_one_or_none.return_value = conversation_already_notified
 
         mock_db.execute.return_value = select_result
+        # send_message's "listing still available?" guard does `await db.get(Listing, ...)`;
+        # return an active listing (available, not sold, not deleted) so the guard passes
+        # and we reach the flag-flip logic.
+        mock_db.get = AsyncMock(return_value=MagicMock(sold_at=None, is_available=True, deleted_at=None))
         mock_db.commit = AsyncMock()
 
         # db.refresh populates server-generated columns (id, created_at, is_read) on the
@@ -275,7 +283,13 @@ class TestFirstMessageAtomicFlagGuard:
 # ===========================================================================
 
 class TestSendSaleComplete:
-    """Unit tests for notification_service.send_sale_complete."""
+    """Unit tests for notification_service.send_sale_complete.
+
+    NO-PAYMENTS model: the current signature is send_sale_complete(listing_title,
+    seller_email). It carries no amount/payout — the platform processes no money.
+    Success/failure are logged keyed by the listing title (the only stable id the
+    BackgroundTask receives), never by the seller email.
+    """
 
     @pytest.mark.asyncio
     async def test_sale_complete_email_uses_correct_subject(self):
@@ -283,39 +297,33 @@ class TestSendSaleComplete:
         from app.services.notification_service import send_sale_complete
 
         with patch("app.services.notification_service.resend.Emails.send") as mock_send:
-            await send_sale_complete(TRANSACTION_ID, 450, SELLER_EMAIL)
+            await send_sale_complete(LISTING_TITLE, SELLER_EMAIL)
 
         payload = mock_send.call_args[0][0]
         assert payload["subject"] == "Your listing has been sold!"
 
     @pytest.mark.asyncio
     async def test_sale_complete_email_uses_correct_from_address(self):
-        """Spec 04 cross-cutting: from address must be 'NextPrep <no-reply@yourdomain.com>'."""
+        """Spec 04 cross-cutting: from address must be 'NextPrep <no-reply@nextprep.online>'."""
         from app.services.notification_service import send_sale_complete
 
         with patch("app.services.notification_service.resend.Emails.send") as mock_send:
-            await send_sale_complete(TRANSACTION_ID, 450, SELLER_EMAIL)
+            await send_sale_complete(LISTING_TITLE, SELLER_EMAIL)
 
         payload = mock_send.call_args[0][0]
         assert payload["from"] == FROM_ADDRESS
 
     @pytest.mark.asyncio
-    async def test_sale_complete_email_body_contains_whole_rupee_payout(self):
-        """Spec 04 §Email2: body must include whole-rupee seller_payout_rupees (no paise).
-        Spec cross-cutting: paise conversion (amount * 100) happens only at Razorpay
-        payment_link.create() — it must never appear in the email body."""
+    async def test_sale_complete_email_body_contains_listing_title(self):
+        """Spec 04 §Email2 (NO-PAYMENTS): body must include the listing title so the seller
+        knows which listing sold. There is no amount/payout — the platform handles no money."""
         from app.services.notification_service import send_sale_complete
 
-        payout_rupees = 750
-
         with patch("app.services.notification_service.resend.Emails.send") as mock_send:
-            await send_sale_complete(TRANSACTION_ID, payout_rupees, SELLER_EMAIL)
+            await send_sale_complete(LISTING_TITLE, SELLER_EMAIL)
 
         payload = mock_send.call_args[0][0]
-        # Rupee value must appear
-        assert str(payout_rupees) in payload["html"]
-        # Paise value (rupees * 100) must NOT appear
-        assert str(payout_rupees * 100) not in payload["html"]
+        assert LISTING_TITLE in payload["html"]
 
     @pytest.mark.asyncio
     async def test_sale_complete_email_sends_to_seller(self):
@@ -323,14 +331,14 @@ class TestSendSaleComplete:
         from app.services.notification_service import send_sale_complete
 
         with patch("app.services.notification_service.resend.Emails.send") as mock_send:
-            await send_sale_complete(TRANSACTION_ID, 500, SELLER_EMAIL)
+            await send_sale_complete(LISTING_TITLE, SELLER_EMAIL)
 
         payload = mock_send.call_args[0][0]
         assert SELLER_EMAIL in payload["to"]
 
     @pytest.mark.asyncio
     async def test_sale_complete_email_resend_exception_is_swallowed(self):
-        """Spec 04 cross-cutting: Resend failure must never block the webhook response."""
+        """Spec 04 cross-cutting: Resend failure must never block the (already-committed) sale."""
         from app.services.notification_service import send_sale_complete
 
         with patch(
@@ -338,23 +346,23 @@ class TestSendSaleComplete:
             side_effect=Exception("Resend down"),
         ):
             # Must not raise
-            await send_sale_complete(TRANSACTION_ID, 500, SELLER_EMAIL)
+            await send_sale_complete(LISTING_TITLE, SELLER_EMAIL)
 
     @pytest.mark.asyncio
     async def test_sale_complete_email_logs_info_on_success(self):
-        """Spec 04 logging: success logged at INFO keyed by transaction UUID."""
+        """Spec 04 logging: success logged at INFO keyed by listing title."""
         from app.services import notification_service
 
         with patch("app.services.notification_service.resend.Emails.send"):
             with patch.object(notification_service.logger, "info") as mock_info:
-                await notification_service.send_sale_complete(TRANSACTION_ID, 500, SELLER_EMAIL)
+                await notification_service.send_sale_complete(LISTING_TITLE, SELLER_EMAIL)
 
         logged = [str(c) for c in mock_info.call_args_list]
-        assert any(str(TRANSACTION_ID) in m for m in logged)
+        assert any(LISTING_TITLE in m for m in logged)
 
     @pytest.mark.asyncio
     async def test_sale_complete_email_logs_error_on_resend_failure(self):
-        """Spec 04 logging: Resend failure logged at ERROR with transaction UUID."""
+        """Spec 04 logging: Resend failure logged at ERROR with the listing title."""
         from app.services import notification_service
 
         with patch(
@@ -362,10 +370,10 @@ class TestSendSaleComplete:
             side_effect=Exception("timeout"),
         ):
             with patch.object(notification_service.logger, "error") as mock_error:
-                await notification_service.send_sale_complete(TRANSACTION_ID, 500, SELLER_EMAIL)
+                await notification_service.send_sale_complete(LISTING_TITLE, SELLER_EMAIL)
 
         mock_error.assert_called_once()
-        assert str(TRANSACTION_ID) in str(mock_error.call_args)
+        assert LISTING_TITLE in str(mock_error.call_args)
 
     @pytest.mark.asyncio
     async def test_sale_complete_email_error_log_never_contains_recipient_address(self):
@@ -377,408 +385,60 @@ class TestSendSaleComplete:
             side_effect=Exception("timeout"),
         ):
             with patch.object(notification_service.logger, "error") as mock_error:
-                await notification_service.send_sale_complete(TRANSACTION_ID, 500, SELLER_EMAIL)
+                await notification_service.send_sale_complete(LISTING_TITLE, SELLER_EMAIL)
 
         assert SELLER_EMAIL not in str(mock_error.call_args)
 
-    @pytest.mark.asyncio
-    async def test_sale_complete_zero_paise_in_email_body_boundary(self):
-        """Spec 04 price boundary: confirms paise value is never written into the email body
-        even for round amounts where rupees * 100 could masquerade as a larger rupee number."""
-        from app.services.notification_service import send_sale_complete
-
-        payout_rupees = 100  # 100 * 100 = 10000 paise — must not appear as 10000
-
-        with patch("app.services.notification_service.resend.Emails.send") as mock_send:
-            await send_sale_complete(TRANSACTION_ID, payout_rupees, SELLER_EMAIL)
-
-        payload = mock_send.call_args[0][0]
-        assert "10000" not in payload["html"]
-        assert "100" in payload["html"]
-
 
 class TestNotifySellerOfSaleDispatch:
-    """Tests for payments._notify_seller_of_sale — the BackgroundTask wrapper."""
+    """Tests for transactions._notify_seller_of_sale — the BackgroundTask wrapper.
+
+    NO-PAYMENTS model: this wrapper is queued by the passkey-verify endpoint (not a
+    payment webhook) and takes (seller_id, listing_title). It resolves the seller's
+    email server-side and forwards (listing_title, seller_email) to send_sale_complete.
+    """
 
     @pytest.mark.asyncio
     async def test_notify_seller_sends_when_email_resolved(self):
-        """Spec 04 §Email2 dispatch: send_sale_complete called with resolved email."""
-        from app.routers.payments import _notify_seller_of_sale
+        """Spec 04 §Email2 dispatch: send_sale_complete called with title + resolved email."""
+        from app.routers.transactions import _notify_seller_of_sale
 
-        with patch("app.routers.payments.fetch_user_email", new_callable=AsyncMock,
+        with patch("app.routers.transactions.fetch_user_email", new_callable=AsyncMock,
                    return_value=SELLER_EMAIL):
-            with patch("app.routers.payments.notification_service.send_sale_complete",
+            with patch("app.routers.transactions.notification_service.send_sale_complete",
                        new_callable=AsyncMock) as mock_send:
-                await _notify_seller_of_sale(TRANSACTION_ID, SELLER_ID, 750)
+                await _notify_seller_of_sale(SELLER_ID, LISTING_TITLE)
 
-        mock_send.assert_awaited_once_with(TRANSACTION_ID, 750, SELLER_EMAIL)
+        mock_send.assert_awaited_once_with(LISTING_TITLE, SELLER_EMAIL)
 
     @pytest.mark.asyncio
     async def test_notify_seller_logs_warning_when_email_unresolved(self):
         """Spec 04 §Email2 dispatch: warning logged when seller email cannot be resolved."""
-        import app.routers.payments as payments_module
+        import app.routers.transactions as transactions_module
 
-        with patch("app.routers.payments.fetch_user_email", new_callable=AsyncMock,
+        with patch("app.routers.transactions.fetch_user_email", new_callable=AsyncMock,
                    return_value=None):
-            with patch("app.routers.payments.notification_service.send_sale_complete",
+            with patch("app.routers.transactions.notification_service.send_sale_complete",
                        new_callable=AsyncMock) as mock_send:
-                with patch.object(payments_module.logger, "warning") as mock_warn:
-                    await payments_module._notify_seller_of_sale(TRANSACTION_ID, SELLER_ID, 500)
+                with patch.object(transactions_module.logger, "warning") as mock_warn:
+                    await transactions_module._notify_seller_of_sale(SELLER_ID, LISTING_TITLE)
 
         mock_send.assert_not_awaited()
         mock_warn.assert_called_once()
-        assert str(TRANSACTION_ID) in str(mock_warn.call_args)
+        assert LISTING_TITLE in str(mock_warn.call_args)
 
     @pytest.mark.asyncio
     async def test_notify_seller_warning_never_logs_resolved_email(self):
         """Spec 04 security/logging: the warning for unresolved seller must not include
         any email address in the log output."""
-        import app.routers.payments as payments_module
+        import app.routers.transactions as transactions_module
 
-        with patch("app.routers.payments.fetch_user_email", new_callable=AsyncMock,
+        with patch("app.routers.transactions.fetch_user_email", new_callable=AsyncMock,
                    return_value=None):
-            with patch.object(payments_module.logger, "warning") as mock_warn:
-                await payments_module._notify_seller_of_sale(TRANSACTION_ID, SELLER_ID, 500)
+            with patch.object(transactions_module.logger, "warning") as mock_warn:
+                await transactions_module._notify_seller_of_sale(SELLER_ID, LISTING_TITLE)
 
         assert "@" not in str(mock_warn.call_args)
-
-    @pytest.mark.asyncio
-    async def test_seller_payout_passed_as_whole_rupees_not_paise(self):
-        """Spec 04 §Email2 / price rule: the payout forwarded to send_sale_complete is in
-        whole rupees. The test confirms it is NOT multiplied by 100 before the call."""
-        from app.routers.payments import _notify_seller_of_sale
-
-        payout_rupees = 300
-
-        with patch("app.routers.payments.fetch_user_email", new_callable=AsyncMock,
-                   return_value=SELLER_EMAIL):
-            with patch("app.routers.payments.notification_service.send_sale_complete",
-                       new_callable=AsyncMock) as mock_send:
-                await _notify_seller_of_sale(TRANSACTION_ID, SELLER_ID, payout_rupees)
-
-        _, call_payout, _ = mock_send.call_args[0]
-        assert call_payout == payout_rupees
-        assert call_payout != payout_rupees * 100
-
-
-# ===========================================================================
-# EMAIL 3 — Abandoned-checkout notification
-# ===========================================================================
-
-class TestSendAbandonedCheckoutEmail:
-    """Unit tests for notification_service.send_abandoned_checkout_email."""
-
-    @pytest.mark.asyncio
-    async def test_abandoned_checkout_email_uses_correct_subject(self):
-        """Spec 04 §Email3: subject must be exactly 'A buyer didn't complete checkout'."""
-        from app.services.notification_service import send_abandoned_checkout_email
-
-        with patch("app.services.notification_service.resend.Emails.send") as mock_send:
-            await send_abandoned_checkout_email(LISTING_ID, SELLER_EMAIL)
-
-        payload = mock_send.call_args[0][0]
-        assert payload["subject"] == "A buyer didn't complete checkout"
-
-    @pytest.mark.asyncio
-    async def test_abandoned_checkout_email_uses_correct_from_address(self):
-        """Spec 04 cross-cutting: from address must be 'NextPrep <no-reply@yourdomain.com>'."""
-        from app.services.notification_service import send_abandoned_checkout_email
-
-        with patch("app.services.notification_service.resend.Emails.send") as mock_send:
-            await send_abandoned_checkout_email(LISTING_ID, SELLER_EMAIL)
-
-        payload = mock_send.call_args[0][0]
-        assert payload["from"] == FROM_ADDRESS
-
-    @pytest.mark.asyncio
-    async def test_abandoned_checkout_email_html_body_content(self):
-        """Spec 04 §Email3 template: body must contain the canonical copy."""
-        from app.services.notification_service import send_abandoned_checkout_email
-
-        with patch("app.services.notification_service.resend.Emails.send") as mock_send:
-            await send_abandoned_checkout_email(LISTING_ID, SELLER_EMAIL)
-
-        payload = mock_send.call_args[0][0]
-        assert "A buyer started a purchase but did not complete payment" in payload["html"]
-        assert "Your listing is still available" in payload["html"]
-
-    @pytest.mark.asyncio
-    async def test_abandoned_checkout_email_sends_to_seller(self):
-        """Spec 04 §Email3: recipient is the seller."""
-        from app.services.notification_service import send_abandoned_checkout_email
-
-        with patch("app.services.notification_service.resend.Emails.send") as mock_send:
-            await send_abandoned_checkout_email(LISTING_ID, SELLER_EMAIL)
-
-        payload = mock_send.call_args[0][0]
-        assert SELLER_EMAIL in payload["to"]
-
-    @pytest.mark.asyncio
-    async def test_abandoned_checkout_email_resend_exception_is_swallowed(self):
-        """Spec 04 cross-cutting: Resend failure must not propagate to the scheduler job."""
-        from app.services.notification_service import send_abandoned_checkout_email
-
-        with patch(
-            "app.services.notification_service.resend.Emails.send",
-            side_effect=Exception("Resend outage"),
-        ):
-            # Must not raise — scheduler must keep running
-            await send_abandoned_checkout_email(LISTING_ID, SELLER_EMAIL)
-
-    @pytest.mark.asyncio
-    async def test_abandoned_checkout_email_logs_info_on_success(self):
-        """Spec 04 logging: success logged at INFO keyed by listing UUID."""
-        from app.services import notification_service
-
-        with patch("app.services.notification_service.resend.Emails.send"):
-            with patch.object(notification_service.logger, "info") as mock_info:
-                await notification_service.send_abandoned_checkout_email(LISTING_ID, SELLER_EMAIL)
-
-        logged = [str(c) for c in mock_info.call_args_list]
-        assert any(str(LISTING_ID) in m for m in logged)
-
-    @pytest.mark.asyncio
-    async def test_abandoned_checkout_email_logs_error_never_logs_address(self):
-        """Spec 04 logging/security: error log contains listing UUID but not the email address."""
-        from app.services import notification_service
-
-        with patch(
-            "app.services.notification_service.resend.Emails.send",
-            side_effect=Exception("fail"),
-        ):
-            with patch.object(notification_service.logger, "error") as mock_error:
-                await notification_service.send_abandoned_checkout_email(LISTING_ID, SELLER_EMAIL)
-
-        mock_error.assert_called_once()
-        error_str = str(mock_error.call_args)
-        assert str(LISTING_ID) in error_str
-        assert SELLER_EMAIL not in error_str
-
-
-def _scheduler_scaffold(rows, *, redis_set_return=1, redis_set_side_effect=None):
-    """Builds (mock_db, mock_redis) for the cancel_abandoned_transactions job.
-
-    `rows` is a list of (listing_id, seller_id) tuples that the UPDATE ... RETURNING
-    yields — one per stale transaction. The SELECT returns one stale (>15 min old)
-    transaction mock per row. By default SET NX returns 1 (cooldown claimed); pass
-    `redis_set_return` or `redis_set_side_effect` to vary that.
-    """
-    stale_txns = []
-    for _ in rows:
-        txn = MagicMock()
-        txn.id = uuid.uuid4()
-        txn.status = "initiated"
-        txn.created_at = datetime.utcnow() - timedelta(minutes=20)
-        stale_txns.append(txn)
-
-    select_result = MagicMock()
-    select_result.scalars.return_value.all.return_value = stale_txns
-
-    update_results = []
-    for listing_id, seller_id in rows:
-        row = MagicMock()
-        row.listing_id = listing_id
-        row.seller_id = seller_id
-        ur = MagicMock()
-        ur.fetchone.return_value = row
-        update_results.append(ur)
-
-    mock_db = AsyncMock()
-    mock_db.execute = AsyncMock(side_effect=[select_result, *update_results])
-    mock_db.commit = AsyncMock()
-    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
-    mock_db.__aexit__ = AsyncMock(return_value=False)
-
-    mock_redis = AsyncMock()
-    if redis_set_side_effect is not None:
-        mock_redis.set = AsyncMock(side_effect=redis_set_side_effect)
-    else:
-        mock_redis.set = AsyncMock(return_value=redis_set_return)
-
-    return mock_db, mock_redis
-
-
-class TestAbandonedCheckoutCooldown:
-    """Tests for the Redis cooldown guard in the scheduler job."""
-
-    @pytest.fixture
-    def one_stale_txn(self):
-        """A single stale transaction: returns (mock_db, mock_redis, listing_id, seller_id)."""
-        listing_id = uuid.uuid4()
-        seller_id = uuid.uuid4()
-        mock_db, mock_redis = _scheduler_scaffold([(listing_id, seller_id)])
-        return mock_db, mock_redis, listing_id, seller_id
-
-    @pytest.mark.asyncio
-    async def test_cooldown_key_uses_correct_format(self, one_stale_txn):
-        """Spec 04 §Email3 / CLAUDE.md Redis keys: key must be 'abandoned_notified:{listing_id}'."""
-        from app.jobs.scheduler import cancel_abandoned_transactions
-
-        mock_db, mock_redis, listing_id, _ = one_stale_txn
-        expected_key = f"abandoned_notified:{listing_id}"
-
-        with patch("app.jobs.scheduler.AsyncSessionLocal", return_value=mock_db):
-            with patch("app.jobs.scheduler._get_redis", return_value=mock_redis):
-                with patch("app.jobs.scheduler.fetch_user_email", new_callable=AsyncMock,
-                           return_value=SELLER_EMAIL):
-                    with patch("app.jobs.scheduler.notification_service.send_abandoned_checkout_email",
-                               new_callable=AsyncMock):
-                        await cancel_abandoned_transactions()
-
-        redis_set_calls = mock_redis.set.call_args_list
-        assert any(
-            call_args[0][0] == expected_key
-            for call_args in redis_set_calls
-        ), f"Expected SET on key '{expected_key}', got calls: {redis_set_calls}"
-
-    @pytest.mark.asyncio
-    async def test_cooldown_ttl_is_21600_seconds(self, one_stale_txn):
-        """Spec 04 §Email3 cooldown: Redis key TTL must be exactly 21600 seconds (6 hours)."""
-        from app.jobs.scheduler import cancel_abandoned_transactions
-
-        mock_db, mock_redis, _, _ = one_stale_txn
-
-        with patch("app.jobs.scheduler.AsyncSessionLocal", return_value=mock_db):
-            with patch("app.jobs.scheduler._get_redis", return_value=mock_redis):
-                with patch("app.jobs.scheduler.fetch_user_email", new_callable=AsyncMock,
-                           return_value=SELLER_EMAIL):
-                    with patch("app.jobs.scheduler.notification_service.send_abandoned_checkout_email",
-                               new_callable=AsyncMock):
-                        await cancel_abandoned_transactions()
-
-        redis_set_calls = mock_redis.set.call_args_list
-        assert any(
-            call_args[1].get("ex") == 21600
-            for call_args in redis_set_calls
-        ), f"Expected ex=21600, got calls: {redis_set_calls}"
-
-    @pytest.mark.asyncio
-    async def test_cooldown_uses_atomic_set_nx(self, one_stale_txn):
-        """Spec 04 §Email3: cooldown claim must use SET NX (atomic — prevents double-send)."""
-        from app.jobs.scheduler import cancel_abandoned_transactions
-
-        mock_db, mock_redis, _, _ = one_stale_txn
-
-        with patch("app.jobs.scheduler.AsyncSessionLocal", return_value=mock_db):
-            with patch("app.jobs.scheduler._get_redis", return_value=mock_redis):
-                with patch("app.jobs.scheduler.fetch_user_email", new_callable=AsyncMock,
-                           return_value=SELLER_EMAIL):
-                    with patch("app.jobs.scheduler.notification_service.send_abandoned_checkout_email",
-                               new_callable=AsyncMock):
-                        await cancel_abandoned_transactions()
-
-        redis_set_calls = mock_redis.set.call_args_list
-        assert any(
-            call_args[1].get("nx") is True
-            for call_args in redis_set_calls
-        ), f"Expected nx=True, got calls: {redis_set_calls}"
-
-    @pytest.mark.asyncio
-    async def test_cooldown_active_suppresses_email(self):
-        """Spec 04 §Email3: when SET NX returns falsy (key exists), email is not sent."""
-        from app.jobs.scheduler import cancel_abandoned_transactions
-
-        listing_id = uuid.uuid4()
-        seller_id = uuid.uuid4()
-        # SET NX returns None — key already exists, cooldown active.
-        mock_db, mock_redis = _scheduler_scaffold(
-            [(listing_id, seller_id)], redis_set_return=None
-        )
-
-        with patch("app.jobs.scheduler.AsyncSessionLocal", return_value=mock_db):
-            with patch("app.jobs.scheduler._get_redis", return_value=mock_redis):
-                with patch("app.jobs.scheduler.fetch_user_email", new_callable=AsyncMock,
-                           return_value=SELLER_EMAIL) as mock_fetch:
-                    with patch("app.jobs.scheduler.notification_service.send_abandoned_checkout_email",
-                               new_callable=AsyncMock) as mock_send:
-                        await cancel_abandoned_transactions()
-
-        # Cooldown active — neither fetch nor send should be called
-        mock_fetch.assert_not_awaited()
-        mock_send.assert_not_awaited()
-
-    @pytest.mark.asyncio
-    async def test_cooldown_claimed_before_email_resolution(self):
-        """Spec 04 §Email3: the cooldown slot is claimed (SET NX) BEFORE fetch_user_email
-        is called. If email resolution fails, the slot stays consumed for 6h — this is the
-        deliberate ordering documented in the spec."""
-        from app.jobs.scheduler import cancel_abandoned_transactions
-
-        listing_id = uuid.uuid4()
-        seller_id = uuid.uuid4()
-        mock_db, mock_redis = _scheduler_scaffold([(listing_id, seller_id)])
-
-        call_order = []
-
-        async def mock_redis_set(*args, **kwargs):
-            call_order.append("redis_set_nx")
-            return 1
-
-        async def mock_fetch_email(user_id):
-            call_order.append("fetch_user_email")
-            return None  # simulate resolution failure
-
-        mock_redis.set = mock_redis_set
-
-        with patch("app.jobs.scheduler.AsyncSessionLocal", return_value=mock_db):
-            with patch("app.jobs.scheduler._get_redis", return_value=mock_redis):
-                with patch("app.jobs.scheduler.fetch_user_email", side_effect=mock_fetch_email):
-                    with patch("app.jobs.scheduler.notification_service.send_abandoned_checkout_email",
-                               new_callable=AsyncMock):
-                        await cancel_abandoned_transactions()
-
-        assert call_order.index("redis_set_nx") < call_order.index("fetch_user_email"), (
-            "Redis SET NX must occur before fetch_user_email (spec §Email3 ordering)"
-        )
-
-    @pytest.mark.asyncio
-    async def test_unresolved_email_after_cooldown_claim_logs_warning(self):
-        """Spec 04 §Email3: when cooldown claimed but fetch_user_email returns None,
-        a warning is logged referencing the listing UUID so the loss is visible."""
-        from app.jobs import scheduler as scheduler_module
-
-        listing_id = uuid.uuid4()
-        seller_id = uuid.uuid4()
-        mock_db, mock_redis = _scheduler_scaffold([(listing_id, seller_id)])  # claim succeeds
-
-        with patch("app.jobs.scheduler.AsyncSessionLocal", return_value=mock_db):
-            with patch("app.jobs.scheduler._get_redis", return_value=mock_redis):
-                with patch("app.jobs.scheduler.fetch_user_email", new_callable=AsyncMock,
-                           return_value=None):
-                    with patch.object(scheduler_module.logger, "warning") as mock_warn:
-                        with patch("app.jobs.scheduler.notification_service.send_abandoned_checkout_email",
-                                   new_callable=AsyncMock):
-                            await scheduler_module.cancel_abandoned_transactions()
-
-        mock_warn.assert_called()
-        warning_str = str(mock_warn.call_args)
-        assert str(listing_id) in warning_str
-
-    @pytest.mark.asyncio
-    async def test_two_abandoned_txns_same_listing_one_email_only(self):
-        """Spec 04 §Email3 idempotency: two abandoned transactions for the same listing
-        in one job run produce exactly one email (SET NX prevents the second)."""
-        from app.jobs.scheduler import cancel_abandoned_transactions
-
-        listing_id = uuid.uuid4()
-        seller_id = uuid.uuid4()
-        # Two stale transactions for the SAME listing; first SET NX claims (1), second is
-        # already claimed (None).
-        mock_db, mock_redis = _scheduler_scaffold(
-            [(listing_id, seller_id), (listing_id, seller_id)],
-            redis_set_side_effect=[1, None],
-        )
-
-        with patch("app.jobs.scheduler.AsyncSessionLocal", return_value=mock_db):
-            with patch("app.jobs.scheduler._get_redis", return_value=mock_redis):
-                with patch("app.jobs.scheduler.fetch_user_email", new_callable=AsyncMock,
-                           return_value=SELLER_EMAIL):
-                    with patch("app.jobs.scheduler.notification_service.send_abandoned_checkout_email",
-                               new_callable=AsyncMock) as mock_send:
-                        await cancel_abandoned_transactions()
-
-        # Only one send despite two transactions
-        assert mock_send.await_count == 1
 
 
 # ===========================================================================
@@ -1024,15 +684,16 @@ class TestSendListingRemovedEmail:
 # ===========================================================================
 
 class TestCrossCuttingSecurityRules:
-    """Cross-cutting assertions that apply to all four emails."""
+    """Cross-cutting assertions that apply to all live emails (NO-PAYMENTS model)."""
 
-    def test_all_four_send_functions_exist_in_notification_service(self):
-        """Spec 04 scope: notification_service must expose all four send functions."""
+    def test_all_send_functions_exist_in_notification_service(self):
+        """Spec 04 scope (NO-PAYMENTS): notification_service must expose the live send
+        functions. The payment-era abandoned-checkout email no longer exists."""
         from app.services import notification_service
 
         assert hasattr(notification_service, "send_new_message_email")
         assert hasattr(notification_service, "send_sale_complete")
-        assert hasattr(notification_service, "send_abandoned_checkout_email")
+        assert hasattr(notification_service, "send_welcome_email")
         assert hasattr(notification_service, "send_listing_removed_email")
 
     def test_all_send_functions_are_async(self):
@@ -1043,7 +704,7 @@ class TestCrossCuttingSecurityRules:
         for fn_name in [
             "send_new_message_email",
             "send_sale_complete",
-            "send_abandoned_checkout_email",
+            "send_welcome_email",
             "send_listing_removed_email",
         ]:
             fn = getattr(notification_service, fn_name)
@@ -1077,7 +738,7 @@ class TestCrossCuttingSecurityRules:
         from app.services.notification_service import send_sale_complete
 
         with patch("app.services.notification_service.resend.Emails.send"):
-            result = await send_sale_complete(TRANSACTION_ID, 500, SELLER_EMAIL)
+            result = await send_sale_complete(LISTING_TITLE, SELLER_EMAIL)
 
         assert result is None
 
@@ -1088,16 +749,6 @@ class TestCrossCuttingSecurityRules:
 
         with patch("app.services.notification_service.resend.Emails.send"):
             result = await send_new_message_email(CONVERSATION_ID, SELLER_EMAIL)
-
-        assert result is None
-
-    @pytest.mark.asyncio
-    async def test_send_abandoned_checkout_does_not_return_email_in_return_value(self):
-        """Security Rule 1: send_abandoned_checkout_email must return None."""
-        from app.services.notification_service import send_abandoned_checkout_email
-
-        with patch("app.services.notification_service.resend.Emails.send"):
-            result = await send_abandoned_checkout_email(LISTING_ID, SELLER_EMAIL)
 
         assert result is None
 
@@ -1125,67 +776,40 @@ class TestCrossCuttingSecurityRules:
 
         assert result is None
 
-    def test_transaction_status_values_are_only_valid_three(self):
-        """CLAUDE.md canonical rule: valid statuses are ONLY initiated, released, cancelled.
-        The Transaction model CHECK constraint must enforce exactly those three values."""
-        from app.models.transaction import Transaction
-        from sqlalchemy import inspect as sa_inspect
+    @pytest.mark.asyncio
+    async def test_completed_transaction_response_has_no_email_field(self):
+        """Security Rule 1 (NO-PAYMENTS): the passkey-verify response (CompleteTransactionResponse)
+        must never surface any email field. There is no payment/status endpoint in v1."""
+        from app.schemas.transaction import CompleteTransactionResponse
 
-        # Find the status CHECK constraint
-        constraints = Transaction.__table_args__
-        status_check = None
-        for c in constraints:
-            if hasattr(c, "sqltext") and "status" in str(c.sqltext):
-                status_check = c
-                break
-
-        assert status_check is not None, "Transaction must have a CHECK constraint on status"
-        check_str = str(status_check.sqltext)
-        assert "initiated" in check_str
-        assert "released" in check_str
-        assert "cancelled" in check_str
-        # Forbidden statuses must NOT appear in the constraint
-        assert "disputed" not in check_str
-        assert "confirmed" not in check_str
-        assert "pending" not in check_str
-        assert "paid" not in check_str
+        response = CompleteTransactionResponse(
+            transaction_id=TRANSACTION_ID,
+            seller_id=SELLER_ID,
+            seller_name="A Seller",
+            listing_title=LISTING_TITLE,
+        )
+        for key in response.model_dump():
+            assert "email" not in key.lower(), (
+                f"CompleteTransactionResponse must not expose any email field, found: {key}"
+            )
 
 
 class TestEmailNotExposedInApiResponse:
     """Assert that email addresses are never surfaced in API responses (Security Rule 1)."""
 
-    @pytest.mark.asyncio
-    async def test_transaction_status_endpoint_response_has_no_email_field(self):
-        """Security Rule 1: GET /transactions/{id}/status must not contain any email field."""
-        from app.schemas.payment import TransactionStatusResponse
-
-        response = TransactionStatusResponse(status="initiated", amount_rupees=500)
-        response_dict = response.model_dump()
-
-        for key in response_dict:
-            assert "email" not in key.lower(), (
-                f"TransactionStatusResponse must not expose any email field, found: {key}"
-            )
-
-    @pytest.mark.asyncio
-    async def test_fetch_user_email_is_not_exposed_via_any_public_router(self):
-        """Security Rule 9: fetch_user_email (which uses service role) is only called from
-        server-internal contexts — it must not be importable from any router that serves
-        user-facing request paths other than the webhook handler."""
-        # The payments router imports fetch_user_email but only uses it inside
-        # _notify_seller_of_sale (a BackgroundTask — not user-facing).
-        # Verify the payments router does NOT call fetch_user_email directly inside
-        # any route handler that is user-facing (i.e., not the webhook).
+    def test_fetch_user_email_is_not_exposed_in_verify_passkey_endpoint(self):
+        """Security Rule 9 (NO-PAYMENTS): fetch_user_email uses the service role, so it must
+        only run server-internally. The transactions router imports it solely for the
+        _notify_seller_of_sale BackgroundTask — the user-facing verify-passkey handler must
+        never call it directly inside the request path."""
         import inspect
-        from app.routers import payments as payments_router
+        from app.routers import transactions as transactions_router
 
-        # Confirm _notify_seller_of_sale is the only function in payments.py
-        # that references fetch_user_email — it is a BackgroundTask, not a direct handler.
-        source = inspect.getsource(payments_router)
-        # Count occurrences — should only appear in the internal helper
-        assert source.count("fetch_user_email") >= 1  # at minimum the import + one use
-        # The verify_passkey endpoint source must not contain fetch_user_email
-        verify_source = inspect.getsource(payments_router.verify_passkey_endpoint)
+        # fetch_user_email is referenced (import + the internal BackgroundTask helper).
+        source = inspect.getsource(transactions_router)
+        assert source.count("fetch_user_email") >= 1
+        # The user-facing verify endpoint must not call fetch_user_email in-request.
+        verify_source = inspect.getsource(transactions_router.verify_passkey_endpoint)
         assert "fetch_user_email" not in verify_source
 
 

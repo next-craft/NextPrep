@@ -25,6 +25,28 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.core.security import verify_token, optional_user
 from app.core.database import get_db, AsyncSessionLocal
+from app.core.redis import get_redis
+
+
+class FakeRedis:
+    """Minimal in-memory async Redis substitute — POST /listings now enforces a
+    per-seller create rate limit via redis.incr/expire."""
+    def __init__(self):
+        self._store = {}
+
+    async def incr(self, key):
+        self._store[key] = int(self._store.get(key, 0)) + 1
+        return self._store[key]
+
+    async def expire(self, key, ttl, nx=False):
+        return True
+
+    async def get(self, key):
+        v = self._store.get(key)
+        return None if v is None else str(v)
+
+    async def delete(self, key):
+        self._store.pop(key, None)
 
 
 SELLER_ID = str(uuid.uuid4())
@@ -55,6 +77,12 @@ def _override_optional_user(user_id):
 
 @pytest.fixture
 def client():
+    fake_redis = FakeRedis()
+
+    async def _get_redis_override():
+        yield fake_redis
+
+    app.dependency_overrides[get_redis] = _get_redis_override
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
@@ -65,15 +93,14 @@ async def _seed_users_async():
         await session.execute(
             text(
                 """
-                INSERT INTO public.users (id, full_name, razorpay_account_id)
-                VALUES (:seller_id, :seller_name, :seller_acct), (:other_id, :other_name, NULL)
+                INSERT INTO public.users (id, full_name)
+                VALUES (:seller_id, :seller_name), (:other_id, :other_name)
                 ON CONFLICT (id) DO NOTHING
                 """
             ),
             {
                 "seller_id": SELLER_ID,
                 "seller_name": "Test Seller",
-                "seller_acct": "acc_test_seller14",
                 "other_id": OTHER_USER_ID,
                 "other_name": "Test Other User",
             },
@@ -269,10 +296,11 @@ def test_get_listings_filter_by_exam_category_returns_matching_only(client):
         assert listing["exam_category"] == "JEE_MAINS"
 
 
-def test_get_listings_with_invalid_exam_category_returns_empty_array_not_422(client):
+def test_get_listings_with_invalid_exam_category_returns_422(client):
+    # Security pass: unknown enum filter values are rejected with 422 rather than
+    # silently returning an empty list (the route validates against VALID_EXAM_CATEGORIES).
     resp = client.get("/v1/listings", params={"exam_category": "NOT_A_REAL_CATEGORY"})
-    assert resp.status_code == 200
-    assert resp.json() == []
+    assert resp.status_code == 422
 
 
 def test_get_listings_search_q_is_case_insensitive_substring_match(client, auth_as_seller):
@@ -358,16 +386,6 @@ def test_create_listing_with_invalid_condition_returns_422(client, auth_as_selle
     payload["condition"] = "Z"
     resp = client.post("/v1/listings", json=payload)
     assert resp.status_code == 422
-
-
-def test_create_listing_without_razorpay_account_returns_403(client, auth_as_seller, monkeypatch):
-    """Spec: seller without razorpay_account_id -> 403 'Complete payment setup to start selling.'
-    Assumes a seller fixture with no razorpay account is the default test user state."""
-    resp = client.post("/v1/listings", json=VALID_LISTING_PAYLOAD)
-    if resp.status_code == 403:
-        assert resp.json()["detail"] == "Complete payment setup to start selling."
-    else:
-        pytest.skip("Test user fixture has razorpay_account_id set; cannot exercise this guard here")
 
 
 # ---------------------------------------------------------------------------
@@ -457,13 +475,13 @@ def test_listing_out_is_sold_is_false_for_newly_created_unsold_listing(client, a
 
 def test_regenerate_passkey_blocked_with_400_when_passkey_invalidated(client, auth_as_seller):
     """Spec: regeneration is blocked (400) once passkey_invalidated=True (sold listing).
-    This requires the listing to be in a sold state — which only the webhook can set.
-    Since there is no public API to mark a listing sold, this test documents the
-    expected contract; it should be wired to a DB-seeding fixture that directly
-    sets passkey_invalidated=True once such a fixture exists."""
+    This requires the listing to be in a sold state — set only by the passkey
+    verify-passkey flow at the meetup. Since there is no public API on this surface to
+    mark a listing sold, this test documents the expected contract; it should be wired
+    to a DB-seeding fixture that directly sets passkey_invalidated=True once one exists."""
     pytest.skip(
         "Requires direct DB fixture to set listing.passkey_invalidated=True "
-        "(only the payment webhook sets this in production — out of scope for spec 14)"
+        "(set only by the verify-passkey flow — out of scope for spec 14)"
     )
 
 
@@ -507,11 +525,11 @@ def test_patch_listing_silently_ignores_exam_category_and_listing_type(client, a
 
 def test_patch_listing_setting_is_available_true_on_sold_listing_returns_400(client, auth_as_seller):
     """Spec: is_available=True on a sold listing -> 400 'Cannot reactivate a sold listing.'
-    Requires a listing with sold_at IS NOT NULL — set only by the payment webhook in
-    production. Documents the contract; needs a DB-seeding fixture for a sold listing."""
+    Requires a listing with sold_at IS NOT NULL — set only by the verify-passkey flow
+    at the meetup. Documents the contract; needs a DB-seeding fixture for a sold listing."""
     pytest.skip(
         "Requires direct DB fixture to create a listing with sold_at IS NOT NULL "
-        "(only the payment webhook sets sold_at in production — out of scope for spec 14)"
+        "(set only by the verify-passkey flow — out of scope for spec 14)"
     )
 
 
@@ -544,19 +562,19 @@ def test_delete_listing_soft_deletes_and_excludes_from_listing_index(client, aut
     assert listing_id not in ids_in_index
 
 
-def test_get_listing_by_id_after_delete_still_returns_200_not_404(client, auth_as_seller):
+def test_get_listing_by_id_after_delete_returns_404_to_non_owner(client, auth_as_seller):
+    # Security pass: a soft-deleted listing (deleted_at set, is_available FALSE, not
+    # sold) is hidden from non-owners — GET by direct ID returns 404, which is what
+    # makes a moderation takedown / soft delete effective. The owner can still see it,
+    # and sold listings (sold_at set) remain visible; here the viewer is anonymous
+    # (optional_user is not overridden), so it must be treated as not found.
     create_resp = client.post("/v1/listings", json=VALID_LISTING_PAYLOAD)
     listing_id = create_resp.json()["listing"]["id"]
 
     client.delete(f"/v1/listings/{listing_id}")
 
     resp = client.get(f"/v1/listings/{listing_id}")
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["is_available"] is False
-    # sold_at must never be exposed — spec says it stays NULL after soft delete
-    assert "sold_at" not in body
-    assert body["is_sold"] is False
+    assert resp.status_code == 404
 
 
 # ---------------------------------------------------------------------------

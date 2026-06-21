@@ -11,7 +11,7 @@ from app.schemas.report import ReportCreate, ReportAck
 
 logger = logging.getLogger(__name__)
 
-REPORT_RATE_LIMIT = 20          # reports per reporter per hour
+REPORT_RATE_LIMIT = 5           # reports per reporter per hour
 REPORT_RATE_TTL = 3600          # seconds
 
 
@@ -28,11 +28,19 @@ async def create_report(
     #    Checked before the 404 lookup intentionally — this prevents listing-ID
     #    enumeration even when the listing does not exist or is already deleted.
     key = f"report_rate:{reporter_id}"
-    count = await redis.incr(key)
-    # Set the 1-hour window atomically: nx=True writes the TTL only when the key
-    # has none yet, so concurrent first requests can't repeatedly reset/extend it
-    # (avoids the incr-then-expire race).
-    await redis.expire(key, REPORT_RATE_TTL, nx=True)
+    try:
+        count = await redis.incr(key)
+        # Set the 1-hour window atomically: nx=True writes the TTL only when the key
+        # has none yet, so concurrent first requests can't repeatedly reset/extend it
+        # (avoids the incr-then-expire race), and a later call re-sets it if a prior
+        # EXPIRE was lost (no orphaned-TTL lockout).
+        await redis.expire(key, REPORT_RATE_TTL, nx=True)
+    except Exception as e:
+        # Fail CLOSED on a Redis outage (this limiter is also anti-enumeration), but
+        # cleanly: a logged 503, not an uncaught 500. Satisfies the "log every Redis
+        # failure" rule.
+        logger.warning("Redis unavailable during report rate-limit check: %s", str(e))
+        raise HTTPException(status_code=503, detail="Reporting temporarily unavailable. Please try again shortly.")
     if count > REPORT_RATE_LIMIT:
         logger.warning("report_rate_limited reporter=%s", reporter_id)
         raise HTTPException(status_code=429, detail="Too many reports. Try again later.")

@@ -442,7 +442,7 @@ class TestHappyPath:
         )
         assert resp.status_code == 201
 
-    def test_all_valid_reason_values_are_accepted(self, client, auth_as_reporter):
+    def test_all_valid_reason_values_are_accepted(self, client, auth_as_reporter, fake_redis):
         """Spec: all seven reason constants from the canonical set must be accepted."""
         valid_reasons = [
             "PIRACY",
@@ -453,7 +453,10 @@ class TestHappyPath:
             "ABUSIVE",
             "OTHER",
         ]
+        rate_key = f"report_rate:{REPORTER_ID}"
         for reason in valid_reasons:
+            # Isolate from the 5/hour limit — this test is about reason acceptance.
+            asyncio.run(fake_redis.delete(rate_key))
             listing_id = _create_listing()
             resp = client.post(
                 "/v1/reports",
@@ -678,7 +681,7 @@ class TestIdempotency:
 
 
 # ===========================================================================
-# TestRateLimit — Redis report_rate:{reporter_id} (20 reports/hour)
+# TestRateLimit — Redis report_rate:{reporter_id} (5 reports/hour)
 # ===========================================================================
 
 class TestRateLimit:
@@ -717,12 +720,12 @@ class TestRateLimit:
         counter = int(asyncio.run(fake_redis.get(rate_key)))
         assert counter == 3
 
-    def test_20th_report_succeeds(self, client, auth_as_reporter, fake_redis):
-        """Spec: 20 reports/hour is the limit. The 20th report (counter at 19
+    def test_5th_report_succeeds(self, client, auth_as_reporter, fake_redis):
+        """Spec: 5 reports/hour is the limit. The 5th report (counter at 4
         before send) must still return 201."""
         rate_key = f"report_rate:{REPORTER_ID}"
-        # Pre-seed to 19 (one below the limit)
-        asyncio.run(fake_redis.set(rate_key, 19))
+        # Pre-seed to 4 (one below the limit)
+        asyncio.run(fake_redis.set(rate_key, 4))
 
         listing_id = _create_listing()
         resp = client.post(
@@ -731,12 +734,12 @@ class TestRateLimit:
         )
         assert resp.status_code == 201
 
-    def test_21st_report_returns_429(self, client, auth_as_reporter, fake_redis):
-        """Spec DoD: exceeding 20 reports/hour for one reporter → 429.
-        Counter pre-seeded to 20 (all slots exhausted); next request must be blocked."""
+    def test_6th_report_returns_429(self, client, auth_as_reporter, fake_redis):
+        """Spec DoD: exceeding 5 reports/hour for one reporter → 429.
+        Counter pre-seeded to 5 (all slots exhausted); next request must be blocked."""
         rate_key = f"report_rate:{REPORTER_ID}"
-        # Pre-seed to 20 (limit already reached)
-        asyncio.run(fake_redis.set(rate_key, 20))
+        # Pre-seed to 5 (limit already reached)
+        asyncio.run(fake_redis.set(rate_key, 5))
 
         listing_id = _create_listing()
         resp = client.post(

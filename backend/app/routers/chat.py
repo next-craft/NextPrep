@@ -26,9 +26,10 @@ async def list_conversations(
 async def create_conversation(
     data: ConversationCreate,
     db: AsyncSession = Depends(get_db),
+    redis=Depends(get_redis),
     user=Depends(verify_token),
 ):
-    return await chat_service.get_or_create_conversation(db, data.listing_id, user["sub"])
+    return await chat_service.get_or_create_conversation(db, redis, data.listing_id, user["sub"])
 
 
 @router.get("/conversations/{conversation_id}/messages", response_model=list[MessageOut])

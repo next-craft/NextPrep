@@ -216,7 +216,7 @@ export default function ImageUploader({ value = [], onChange, max = 5 }) {
                 className="group relative aspect-square overflow-hidden rounded-md border border-border bg-papaya_whip-700"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt="" className="h-full w-full object-cover" />
+                <img src={url} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                 <AnimatePresence>
                   {i === 0 && (
                     <m.span

@@ -1,7 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 
-export async function proxy(request) {
+// Next.js only runs middleware from a root `middleware.js` exporting `middleware`.
+// Refreshes the Supabase session cookie on every matched navigation.
+export async function middleware(request) {
   const response = NextResponse.next({ request: { headers: request.headers } })
 
   const supabase = createServerClient(
@@ -24,5 +26,7 @@ export async function proxy(request) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // Exclude static assets and the OAuth callback (which runs its own
+  // exchangeCodeForSession — no need for a redundant getUser round-trip there).
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|auth/callback).*)'],
 }

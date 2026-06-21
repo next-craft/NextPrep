@@ -15,16 +15,30 @@ VALID_LISTING_TYPES = {"BOOK", "NOTES", "MODULE", "BUNDLE"}
 VALID_CONDITIONS = {"A", "B", "C"}
 
 
+def _validate_image_urls(v: list[str] | None) -> list[str] | None:
+    """Server-side boundary for stored image URLs: at most 5, each an http(s) URL under
+    2048 chars. Blocks javascript:/data: schemes from ever reaching an <img src>."""
+    if v is None:
+        return v
+    if len(v) > 5:
+        raise ValueError("images must have at most 5 URLs")
+    for url in v:
+        u = (url or "").strip()
+        if not u.startswith(("http://", "https://")) or len(u) > 2048:
+            raise ValueError("each image must be an http(s) URL under 2048 characters")
+    return v
+
+
 class ListingCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=120)
     description: Optional[str] = Field(None, max_length=1000)
     exam_category: str
-    subject: Optional[str] = None
+    subject: Optional[str] = Field(None, max_length=120)
     listing_type: str
     condition: str
     asking_price: int = Field(..., gt=0)
     original_price: Optional[int] = Field(None, gt=0)
-    city: str = Field(..., min_length=1)
+    city: str = Field(..., min_length=1, max_length=80)
     images: list[str] = Field(..., min_length=1, max_length=5)  # at least one image required
 
     @field_validator("exam_category")
@@ -51,19 +65,17 @@ class ListingCreate(BaseModel):
     @field_validator("images")
     @classmethod
     def validate_images(cls, v: list[str] | None) -> list[str] | None:
-        if v is not None and len(v) > 5:
-            raise ValueError("images must have at most 5 URLs")
-        return v
+        return _validate_image_urls(v)
 
 
 class ListingUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=120)
     description: Optional[str] = Field(None, max_length=1000)
-    subject: Optional[str] = None
+    subject: Optional[str] = Field(None, max_length=120)
     condition: Optional[str] = None
     asking_price: Optional[int] = Field(None, gt=0)
     original_price: Optional[int] = Field(None, gt=0)
-    city: Optional[str] = Field(None, min_length=1)
+    city: Optional[str] = Field(None, min_length=1, max_length=80)
     images: Optional[list[str]] = Field(None, max_length=5)
     is_available: Optional[bool] = None
 
@@ -77,9 +89,7 @@ class ListingUpdate(BaseModel):
     @field_validator("images")
     @classmethod
     def validate_images(cls, v: list[str] | None) -> list[str] | None:
-        if v is not None and len(v) > 5:
-            raise ValueError("images must have at most 5 URLs")
-        return v
+        return _validate_image_urls(v)
 
 
 class ListingOut(BaseModel):

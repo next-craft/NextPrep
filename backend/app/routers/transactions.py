@@ -58,20 +58,28 @@ async def verify_passkey_endpoint(
     if str(listing.seller_id) == buyer_id:
         raise HTTPException(403, "You cannot purchase your own listing.")
 
-    # Check 2 — buyer not blocked
+    # Check 2 — atomically reserve an attempt slot BEFORE comparing the hash. Fails
+    # CLOSED: if Redis is unavailable the only brute-force control is gone, so the
+    # request must be rejected (503), never allowed through unmetered.
     attempts_key = f"passkey_attempts:{listing_id}:{buyer_id}"
-    attempts = await redis.get(attempts_key)
-    if attempts and int(attempts) >= 3:
+    try:
+        attempt_no = await transaction_service.register_attempt(redis, attempts_key)
+    except Exception as e:
+        logger.error(
+            "Passkey attempt counter unavailable (failing closed): listing=%s buyer=%s err=%s",
+            listing_id, buyer_id, str(e),
+        )
+        raise HTTPException(503, "Verification temporarily unavailable. Please try again shortly.")
+    if attempt_no > 3:
         logger.warning("Blocked buyer attempt: listing=%s buyer=%s", listing_id, buyer_id)
         raise HTTPException(403, "You have been blocked from this listing.")
 
-    # Check 3 — verify passkey hash
+    # Check 3 — verify passkey hash (constant-time)
     if not verify_passkey(data.passkey, listing_id, listing.passkey_hash):
-        count = await transaction_service.record_failed_attempt(redis, listing_id, buyer_id)
-        remaining = max(0, 3 - count)
+        remaining = max(0, 3 - attempt_no)
         logger.warning(
-            "Incorrect passkey: listing=%s buyer=%s attempts=%d remaining=%d",
-            listing_id, buyer_id, count, remaining
+            "Incorrect passkey: listing=%s buyer=%s attempt=%d remaining=%d",
+            listing_id, buyer_id, attempt_no, remaining
         )
         if remaining == 0:
             raise HTTPException(403, "You have been blocked from this listing.")

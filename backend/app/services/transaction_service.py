@@ -28,10 +28,14 @@ def attempts_message(remaining: int) -> str:
     return f"Incorrect passkey. {remaining} attempts remaining."
 
 
-async def record_failed_attempt(redis, listing_id: str, buyer_id: str) -> int:
-    """Atomically increment the buyer's attempt counter for this listing and
-    refresh its 7-day TTL. Returns the new attempt count."""
-    attempts_key = f"passkey_attempts:{listing_id}:{buyer_id}"
+async def register_attempt(redis, attempts_key: str) -> int:
+    """Atomically reserve one passkey attempt: increment the counter and (re)set its
+    7-day TTL. Returns the new attempt number.
+
+    Incrementing BEFORE the hash comparison makes the 3-attempt cap atomic — concurrent
+    requests each get a distinct number via INCR and can't all observe a stale
+    pre-increment count. Raises on Redis failure so the caller can fail closed: this
+    counter is the only brute-force control on the 8-digit passkey."""
     pipe = redis.pipeline()
     pipe.incr(attempts_key)
     pipe.expire(attempts_key, 604800)  # 7 days
@@ -50,6 +54,12 @@ async def complete_transaction(
     close a listing, so a second concurrent verify gets a clean 409.
     """
     seller_id = listing.seller_id
+
+    # Defense-in-depth: the router already blocks self-purchase, but enforce it at the
+    # mutation site too so a seller can never complete (and farm reputation off) their
+    # own listing, regardless of caller.
+    if str(seller_id) == str(buyer_id):
+        raise HTTPException(403, "You cannot purchase your own listing.")
 
     listing_result = await db.execute(
         update(Listing)

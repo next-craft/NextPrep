@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import supabase_admin
+from app.core.redis import enforce_rate_limit
 from app.models.conversation import Conversation
 from app.models.listing import Listing
 from app.models.message import Message
@@ -18,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 RATE_LIMIT_PER_HOUR = 100
 MESSAGE_CACHE_TTL_SECONDS = 30
+# Cap returned/cached history (newest-N) so a long-lived thread can't grow an
+# unbounded response/cache payload.
+MESSAGE_HISTORY_LIMIT = 1000
 
 
 def _cache_key(conversation_id: UUID) -> str:
@@ -57,8 +61,12 @@ async def _notify_first_message(conversation_id_str: str, recipient_user_id_str:
         logger.warning("Could not resolve seller email: conversation=%s", conversation_id_str)
 
 
+CONVERSATION_CREATE_LIMIT_PER_HOUR = 20
+
+
 async def get_or_create_conversation(
     db: AsyncSession,
+    redis,
     listing_id: UUID,
     buyer_id: str,
 ) -> Conversation:
@@ -74,6 +82,14 @@ async def get_or_create_conversation(
     existing = result.scalar_one_or_none()
     if existing:
         return existing
+
+    # Only NEW conversations reach here, and each one queues a first-message email to the
+    # seller. Cap new-conversation creation per buyer so an attacker can't enumerate
+    # listings and spam-email many sellers (email amplification on a paid quota). Re-opening
+    # an existing conversation returned above, so it doesn't count against this limit.
+    await enforce_rate_limit(
+        redis, f"conv_create_rate:{buyer_id}", CONVERSATION_CREATE_LIMIT_PER_HOUR, 3600
+    )
 
     listing = await db.get(Listing, listing_id)
     if not listing or not listing.is_available:
@@ -134,9 +150,11 @@ async def get_messages(
         result = await db.execute(
             select(Message)
             .where(Message.conversation_id == conversation_id)
-            .order_by(Message.created_at.asc())
+            .order_by(Message.created_at.desc())
+            .limit(MESSAGE_HISTORY_LIMIT)
         )
-        msgs = result.scalars().all()
+        # Fetched newest-first for the cap, returned oldest-first for display.
+        msgs = list(reversed(result.scalars().all()))
         messages = [_serialize_message(m) for m in msgs]
         try:
             await redis.set(cache_key, json.dumps(messages), ex=MESSAGE_CACHE_TTL_SECONDS)
@@ -166,16 +184,33 @@ async def send_message(
     (at most once per conversation, via an atomic flag flip)."""
     conversation = await _assert_participant(db, conversation_id, sender_id)
 
-    # Once the listing has sold, the conversation is closed — neither party can message.
+    # Once the listing is no longer available — sold, paused, moderation-hidden
+    # (is_available=FALSE), or deleted — the conversation is closed for new messages.
+    # (Existing history stays readable via get_messages.) Blocking on is_available
+    # also makes a moderation takedown effective for chat, not just for the listing view.
     if conversation.listing_id is not None:
         listing = await db.get(Listing, conversation.listing_id)
-        if listing is not None and listing.sold_at is not None:
-            raise HTTPException(409, "This listing has been sold. The conversation is closed.")
+        if listing is not None and (
+            not listing.is_available or listing.deleted_at is not None
+        ):
+            raise HTTPException(409, "This listing is no longer available. The conversation is closed.")
 
+    # Per-conversation hourly rate limit. Increment-then-check makes the cap atomic:
+    # concurrent sends each get a distinct count via INCR, so a burst can't all observe a
+    # stale pre-increment value and slip past. Fails OPEN by design — if Redis is down,
+    # messaging proceeds (chat availability is favoured over strict enforcement; contrast
+    # the passkey limiter, which fails closed).
     rate_key = _rate_key(conversation_id, sender_id)
-    count = await _safe_redis_get(redis, rate_key)
-    if count and int(count) >= RATE_LIMIT_PER_HOUR:
-        raise HTTPException(429, "Message rate limit reached. Try again later.")
+    try:
+        new_count = await redis.incr(rate_key)
+        if new_count == 1:
+            await redis.expire(rate_key, 3600)
+        if new_count > RATE_LIMIT_PER_HOUR:
+            raise HTTPException(429, "Message rate limit reached. Try again later.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning("Redis unavailable during rate check — failing open: %s", str(e))
 
     message = Message(
         conversation_id=conversation_id,
@@ -200,15 +235,12 @@ async def send_message(
     await db.commit()
     await db.refresh(message)
 
-    # Redis bookkeeping AFTER a successful commit: the hourly rate budget counts only
-    # persisted messages, and the cache is invalidated so the next poll re-reads the DB.
+    # Invalidate the message cache so the next poll re-reads the DB. (The rate counter
+    # was already incremented atomically above, before the insert.)
     try:
-        new_count = await redis.incr(rate_key)
-        if new_count == 1:
-            await redis.expire(rate_key, 3600)
         await redis.delete(_cache_key(conversation_id))
     except Exception as e:
-        logger.warning("Redis unavailable during send_message bookkeeping: %s", str(e))
+        logger.warning("Redis unavailable (cache delete) after send: %s", str(e))
 
     if notify_first:
         background_tasks.add_task(
