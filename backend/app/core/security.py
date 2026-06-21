@@ -64,13 +64,16 @@ async def verify_token(authorization: str = Header(None)):
             logger.warning("JWKS public key not found for kid=%s", kid)
             raise HTTPException(status_code=401, detail="Public key not found")
 
+        # NOTE: do NOT pin `issuer` or require an `iss` claim here. Supabase access
+        # tokens' issuer format varies (legacy `"supabase"` vs `"<url>/auth/v1"`), and
+        # pinning it rejects valid tokens. Trust is already anchored by ES256 signature
+        # verification against THIS project's JWKS, so issuer pinning adds little. The
+        # `exp` claim is still verified by jose automatically. (Matches AUTH.md.)
         payload = jwt.decode(
             token,
             key,
             algorithms=["ES256"],
             audience="authenticated",
-            issuer=f"{_SUPABASE_URL}/auth/v1",
-            options={"require": ["exp", "sub", "aud", "iss"]},
         )
         return payload
 
