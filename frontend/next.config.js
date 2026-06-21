@@ -1,5 +1,11 @@
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const apiUrl = process.env.NEXT_PUBLIC_API_URL || ''
+// CSP connect-src must use ORIGINS only (scheme://host[:port]) — a source WITH a path
+// (e.g. https://api.nextprep.online/v1) does NOT reliably match sub-paths in browsers,
+// which silently blocks every XHR to /v1/* (broke the whole authenticated UI).
+function originOf(u) {
+  try { return new URL(u).origin } catch { return (u || '').trim() }
+}
+const supabaseOrigin = originOf(process.env.NEXT_PUBLIC_SUPABASE_URL)
+const apiOrigin = originOf(process.env.NEXT_PUBLIC_API_URL)
 
 // Content-Security-Policy. frame-ancestors 'none' (plus X-Frame-Options below) is the
 // real clickjacking fix. script/style still allow 'unsafe-inline'/'unsafe-eval' because
@@ -12,7 +18,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  `connect-src 'self' ${supabaseUrl} ${apiUrl} https://api.cloudinary.com https://*.supabase.co wss://*.supabase.co`.trim(),
+  `connect-src 'self' ${supabaseOrigin} ${apiOrigin} https://api.cloudinary.com https://*.supabase.co wss://*.supabase.co`.replace(/\s+/g, ' ').trim(),
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
