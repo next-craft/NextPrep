@@ -28,7 +28,7 @@ function MarqueeCard({ listing }) {
             fill
             unoptimized={!isOptimizedImageHost(img)}
             sizes="240px"
-            className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+            className="object-contain transition-transform duration-500 ease-out group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-light_bronze-500">

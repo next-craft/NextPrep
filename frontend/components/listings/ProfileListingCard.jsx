@@ -39,7 +39,7 @@ export default function ProfileListingCard({ listing, className }) {
             unoptimized={!isOptimizedImageHost(listing.images[0])}
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 20vw"
             className={cn(
-              'object-cover transition-transform duration-500 ease-out group-hover:scale-[1.07]',
+              'object-contain transition-transform duration-500 ease-out group-hover:scale-[1.07]',
               dimmed && 'opacity-70'
             )}
           />
