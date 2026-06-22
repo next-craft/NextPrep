@@ -18,7 +18,7 @@ export default function ListingCard({ listing, className }) {
         className
       )}
     >
-      <div className="relative aspect-[4/5] overflow-hidden bg-papaya_whip-700 sm:aspect-[6/5]">
+      <div className="relative aspect-square overflow-hidden bg-papaya_whip-700 sm:aspect-[6/5]">
         {listing.images?.[0] ? (
           <Image
             src={listing.images[0]}
