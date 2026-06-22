@@ -27,7 +27,7 @@ export default function ListingCard({ listing, className }) {
             unoptimized={!isOptimizedImageHost(listing.images[0])}
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 33vw"
             className={cn(
-              'object-cover transition-transform duration-500 ease-out group-hover:scale-105',
+              'object-contain transition-transform duration-500 ease-out group-hover:scale-105',
               dimmed && 'opacity-70'
             )}
           />
