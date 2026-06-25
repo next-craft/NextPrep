@@ -13,7 +13,8 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/sonner'
 import { CONDITIONS } from '@/constants/conditions'
-import { CITIES } from '@/constants/cities'
+import { STATES } from '@/constants/states'
+import { DISTRICTS_BY_STATE } from '@/constants/districts'
 import { SUBJECTS } from '@/constants/subjects'
 import { YEARS } from '@/constants/years'
 import { LISTING_TYPE_LABEL } from '@/lib/utils'
@@ -32,10 +33,13 @@ export default function EditListingDialog({ listing, open, onOpenChange, onSaved
     year: listing.year ?? '',
     edition: listing.edition || '',
     condition: listing.condition || 'A',
+    state: listing.state || '',
     city: listing.city || '',
   })
   const [images, setImages] = useState(listing.images || [])
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  // Changing the state resets the city, since districts are state-specific.
+  const setState = (e) => setForm((f) => ({ ...f, state: e.target.value, city: '' }))
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (payload) => {
@@ -62,6 +66,7 @@ export default function EditListingDialog({ listing, open, onOpenChange, onSaved
       year: form.year ? parseInt(form.year, 10) : null,
       edition: form.edition || null,
       condition: form.condition,
+      state: form.state,
       city: form.city,
       images,
     })
@@ -133,13 +138,24 @@ export default function EditListingDialog({ listing, open, onOpenChange, onSaved
               </select>
             </div>
             <div>
-              <label htmlFor="e-city" className="label">City</label>
-              <select id="e-city" className="select" value={form.city} onChange={set('city')}>
-                {CITIES.map((c) => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
+              <label htmlFor="e-state" className="label">State</label>
+              <select id="e-state" className="select" value={form.state} onChange={setState}>
+                <option value="">Select state…</option>
+                {STATES.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
                 ))}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="e-city" className="label">City / District</label>
+            <select id="e-city" className="select" value={form.city} onChange={set('city')} disabled={!form.state}>
+              <option value="">{form.state ? 'Select district…' : 'Select a state first'}</option>
+              {(DISTRICTS_BY_STATE[form.state] || []).map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
           </div>
 
           <div>

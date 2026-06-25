@@ -20,6 +20,7 @@ async def list_listings(
     q: str | None = Query(None),
     exam_category: str | None = Query(None),
     subject: str | None = Query(None),
+    state: str | None = Query(None),
     city: str | None = Query(None),
     condition: str | None = Query(None),
     listing_type: str | None = Query(None),
@@ -28,7 +29,7 @@ async def list_listings(
 ):
     return await listing_service.get_listings(
         db, q=q, exam_category=exam_category, subject=subject,
-        city=city, condition=condition, listing_type=listing_type,
+        state=state, city=city, condition=condition, listing_type=listing_type,
         seller_id=seller_id,
     )
 

@@ -6,7 +6,8 @@ import api from '@/lib/api'
 import { EXAM_CATEGORIES } from '@/constants/examCategories'
 import { LISTING_TYPES } from '@/constants/listingTypes'
 import { CONDITIONS } from '@/constants/conditions'
-import { CITIES } from '@/constants/cities'
+import { STATES } from '@/constants/states'
+import { DISTRICTS_BY_STATE } from '@/constants/districts'
 import { SUBJECTS } from '@/constants/subjects'
 import { YEARS } from '@/constants/years'
 import ImageUploader from '@/components/listings/ImageUploader'
@@ -17,6 +18,7 @@ export default function CreateListingForm() {
   const [passkey, setPasskey] = useState(null)
   const [listingId, setListingId] = useState(null)
   const [images, setImages] = useState([])
+  const [state, setState] = useState('') // drives the dependent City/District options
 
   const { mutate, isPending, error } = useMutation({
     // API: POST /listings — returns { listing, passkey } (passkey shown once)
@@ -53,6 +55,7 @@ export default function CreateListingForm() {
       original_price,
       year,
       edition: fd.get('edition') || undefined,
+      state: fd.get('state'),
       city: fd.get('city'),
       images,
     })
@@ -172,12 +175,30 @@ export default function CreateListingForm() {
               <input id="edition" name="edition" maxLength={50} className="input" placeholder="e.g. 7th edition" />
             </div>
 
-            <div className="sm:col-span-2">
-              <label htmlFor="city" className="label">City *</label>
-              <select id="city" name="city" required defaultValue="" className="select">
-                <option value="" disabled>Select city…</option>
-                {CITIES.map((c) => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
+            <div>
+              <label htmlFor="state" className="label">State *</label>
+              <select
+                id="state"
+                name="state"
+                required
+                value={state}
+                onChange={(e) => setState(e.target.value)}
+                className="select"
+              >
+                <option value="" disabled>Select state…</option>
+                {STATES.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="city" className="label">City / District *</label>
+              {/* keyed by state so the selection resets when the state changes */}
+              <select id="city" name="city" key={state} required defaultValue="" disabled={!state} className="select">
+                <option value="" disabled>{state ? 'Select district…' : 'Select a state first'}</option>
+                {(DISTRICTS_BY_STATE[state] || []).map((d) => (
+                  <option key={d} value={d}>{d}</option>
                 ))}
               </select>
             </div>

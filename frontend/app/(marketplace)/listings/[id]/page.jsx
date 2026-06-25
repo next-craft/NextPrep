@@ -121,7 +121,7 @@ export default async function ListingDetailPage({ params }) {
       availability: isAvailable
         ? 'https://schema.org/InStock'
         : 'https://schema.org/SoldOut',
-      areaServed: listing.city,
+      areaServed: [listing.city, listing.state].filter(Boolean).join(', '),
       ...(seller
         ? {
             seller: {
@@ -225,7 +225,7 @@ export default async function ListingDetailPage({ params }) {
                 <ConditionBadge code={listing.condition} />
                 <Dot />
                 <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <MapPin className="h-4 w-4" /> {listing.city}
+                  <MapPin className="h-4 w-4" /> {listing.state ? `${listing.city}, ${listing.state}` : listing.city}
                 </span>
                 <Dot />
                 <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">

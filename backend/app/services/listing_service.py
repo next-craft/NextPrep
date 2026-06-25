@@ -31,6 +31,7 @@ async def create_listing(
         original_price=data.original_price,
         year=data.year,
         edition=data.edition,
+        state=data.state,
         city=data.city,
         images=data.images or [],
         passkey_hash="placeholder",  # overwritten after insert, once listing.id is known
@@ -51,6 +52,7 @@ async def get_listings(
     q: str | None = None,
     exam_category: str | None = None,
     subject: str | None = None,
+    state: str | None = None,
     city: str | None = None,
     condition: str | None = None,
     listing_type: str | None = None,
@@ -71,6 +73,8 @@ async def get_listings(
         stmt = stmt.where(Listing.exam_category == exam_category)
     if subject:
         stmt = stmt.where(Listing.subject.ilike(f"%{subject}%"))
+    if state:
+        stmt = stmt.where(Listing.state == state)
     if city:
         stmt = stmt.where(Listing.city.ilike(f"%{city}%"))
     if condition:

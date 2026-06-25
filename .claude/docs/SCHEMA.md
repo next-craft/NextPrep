@@ -10,7 +10,8 @@ Migrations: Alembic — never make raw schema changes.
 ```sql
 id            UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE
 full_name     TEXT NOT NULL
-city          TEXT
+state         TEXT                          -- state/UT (igod), nullable
+city          TEXT                          -- district within `state` (igod), nullable
 avatar_url    TEXT
 is_verified   BOOLEAN DEFAULT FALSE    -- verification badge: auto TRUE once books_sold >= 10
 seller_rating NUMERIC(3,2)            -- avg of received 1-5 seller ratings
@@ -46,7 +47,8 @@ original_price  INTEGER                       -- whole rupees
 year            INTEGER                       -- optional, CHECK 2000–2026 (book year)
   CHECK (year IS NULL OR (year >= 2000 AND year <= 2026))
 edition         TEXT                          -- optional, free text (e.g. "7th edition")
-city            TEXT NOT NULL
+state           TEXT                          -- state/UT (igod). Nullable (legacy rows backfilled).
+city            TEXT NOT NULL                 -- district within `state` (igod). Validated app-side.
 images          TEXT[]                        -- Cloudinary URLs, max 5
 is_available    BOOLEAN DEFAULT TRUE
 sold_at         TIMESTAMPTZ DEFAULT NULL

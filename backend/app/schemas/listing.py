@@ -1,7 +1,9 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional
 from datetime import datetime
 import uuid
+
+from app.constants.locations import is_valid_state, is_valid_city
 
 VALID_EXAM_CATEGORIES = {
     "JEE_MAINS", "JEE_ADVANCED", "NEET_UG", "NEET_PG",
@@ -26,8 +28,22 @@ class ListingCreate(BaseModel):
     original_price: Optional[int] = Field(None, gt=0)
     year: Optional[int] = Field(None, ge=2000, le=2026)
     edition: Optional[str] = Field(None, max_length=50)
-    city: str = Field(..., min_length=1)
+    state: str = Field(..., min_length=1)
+    city: str = Field(..., min_length=1)  # district within `state`
     images: list[str] = Field(..., min_length=1, max_length=5)  # at least one image required
+
+    @field_validator("state")
+    @classmethod
+    def validate_state(cls, v: str) -> str:
+        if not is_valid_state(v):
+            raise ValueError("state must be a valid Indian state or union territory")
+        return v
+
+    @model_validator(mode="after")
+    def validate_city_in_state(self):
+        if not is_valid_city(self.state, self.city):
+            raise ValueError(f"city must be a district of {self.state}")
+        return self
 
     @field_validator("exam_category")
     @classmethod
@@ -67,9 +83,24 @@ class ListingUpdate(BaseModel):
     original_price: Optional[int] = Field(None, gt=0)
     year: Optional[int] = Field(None, ge=2000, le=2026)
     edition: Optional[str] = Field(None, max_length=50)
+    state: Optional[str] = Field(None, min_length=1)
     city: Optional[str] = Field(None, min_length=1)
     images: Optional[list[str]] = Field(None, max_length=5)
     is_available: Optional[bool] = None
+
+    @field_validator("state")
+    @classmethod
+    def validate_state(cls, v: str | None) -> str | None:
+        if v is not None and not is_valid_state(v):
+            raise ValueError("state must be a valid Indian state or union territory")
+        return v
+
+    @model_validator(mode="after")
+    def validate_city_in_state(self):
+        # The edit form always submits state + city together; validate the pair when both are present.
+        if self.state is not None and self.city is not None and not is_valid_city(self.state, self.city):
+            raise ValueError(f"city must be a district of {self.state}")
+        return self
 
     @field_validator("condition")
     @classmethod
@@ -99,6 +130,7 @@ class ListingOut(BaseModel):
     original_price: Optional[int]
     year: Optional[int]
     edition: Optional[str]
+    state: Optional[str]
     city: str
     images: Optional[list[str]]
     is_available: bool

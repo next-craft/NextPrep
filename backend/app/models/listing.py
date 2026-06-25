@@ -22,9 +22,10 @@ class Listing(Base):
     condition              = Column(String, nullable=False)
     asking_price           = Column(Integer, nullable=False)
     original_price         = Column(Integer)
-    year                   = Column(Integer)   # optional — year of the book (2015–2026)
+    year                   = Column(Integer)   # optional — year of the book (2000–2026)
     edition                = Column(String)    # optional — free-text edition (e.g. "7th edition")
-    city                   = Column(String, nullable=False)
+    state                  = Column(String)    # state/UT (igod). Nullable for pre-existing rows.
+    city                   = Column(String, nullable=False)  # district within `state` (igod)
     images                 = Column(ARRAY(String))
     is_available           = Column(Boolean, nullable=False, server_default="true")
     sold_at                = Column(TIMESTAMP(timezone=True))
