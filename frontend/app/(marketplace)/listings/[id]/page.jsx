@@ -2,8 +2,8 @@ import { cache } from 'react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { MapPin, Eye, BadgeCheck, ChevronRight, ShieldCheck, Settings } from 'lucide-react'
-import { conditionMeta, listingStatus, formatPrice, LISTING_TYPE_LABEL } from '@/lib/utils'
+import { MapPin, Eye, BadgeCheck, ChevronRight, ShieldCheck, Settings, Clock } from 'lucide-react'
+import { conditionMeta, listingStatus, formatPrice, LISTING_TYPE_LABEL, formatRelativeTime, formatDate } from '@/lib/utils'
 import { EXAM_CATEGORY_LABEL } from '@/constants/examCategories'
 import JsonLd from '@/components/shared/json-ld'
 import PriceBlock from '@/components/shared/price-block'
@@ -231,6 +231,17 @@ export default async function ListingDetailPage({ params }) {
                 <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
                   <Eye className="h-4 w-4" /> {listing.views} views
                 </span>
+                {listing.created_at && (
+                  <>
+                    <Dot />
+                    <span
+                      className="inline-flex items-center gap-1.5 text-sm text-muted-foreground"
+                      title={`Listed ${formatDate(listing.created_at)}`}
+                    >
+                      <Clock className="h-4 w-4" /> Listed {formatRelativeTime(listing.created_at)}
+                    </span>
+                  </>
+                )}
               </StaggerItem>
 
               <StaggerItem>
