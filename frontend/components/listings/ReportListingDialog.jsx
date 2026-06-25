@@ -83,7 +83,7 @@ export default function ReportListingDialog({ listingId, isLoggedIn, className }
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               disabled={isPending}
-              className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="select"
             >
               <option value="" disabled>
                 Select a reason…

@@ -109,7 +109,7 @@ export default function CreateListingForm() {
           <StaggerItem className="grid gap-5 sm:grid-cols-2">
             <div>
               <label htmlFor="exam_category" className="label">Exam category *</label>
-              <select id="exam_category" name="exam_category" required defaultValue="" className="input">
+              <select id="exam_category" name="exam_category" required defaultValue="" className="select">
                 <option value="" disabled>Select category…</option>
                 {EXAM_CATEGORIES.map((c) => (
                   <option key={c.value} value={c.value}>{c.label}</option>
@@ -119,7 +119,7 @@ export default function CreateListingForm() {
 
             <div>
               <label htmlFor="subject" className="label">Subject</label>
-              <select id="subject" name="subject" defaultValue="" className="input">
+              <select id="subject" name="subject" defaultValue="" className="select">
                 <option value="">Select subject…</option>
                 {SUBJECTS.map((s) => (
                   <option key={s} value={s}>{s}</option>
@@ -129,7 +129,7 @@ export default function CreateListingForm() {
 
             <div>
               <label htmlFor="listing_type" className="label">Material type *</label>
-              <select id="listing_type" name="listing_type" required defaultValue="" className="input">
+              <select id="listing_type" name="listing_type" required defaultValue="" className="select">
                 <option value="" disabled>Select type…</option>
                 {LISTING_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>{t.label}</option>
@@ -139,7 +139,7 @@ export default function CreateListingForm() {
 
             <div>
               <label htmlFor="condition" className="label">Condition *</label>
-              <select id="condition" name="condition" required defaultValue="" className="input">
+              <select id="condition" name="condition" required defaultValue="" className="select">
                 <option value="" disabled>Select condition…</option>
                 {CONDITIONS.map((c) => (
                   <option key={c.value} value={c.value}>{c.label}</option>
@@ -159,7 +159,7 @@ export default function CreateListingForm() {
 
             <div>
               <label htmlFor="year" className="label">Year</label>
-              <select id="year" name="year" defaultValue="" className="input">
+              <select id="year" name="year" defaultValue="" className="select">
                 <option value="">Select year…</option>
                 {YEARS.map((y) => (
                   <option key={y} value={y}>{y}</option>
@@ -174,7 +174,7 @@ export default function CreateListingForm() {
 
             <div className="sm:col-span-2">
               <label htmlFor="city" className="label">City *</label>
-              <select id="city" name="city" required defaultValue="" className="input">
+              <select id="city" name="city" required defaultValue="" className="select">
                 <option value="" disabled>Select city…</option>
                 {CITIES.map((c) => (
                   <option key={c.value} value={c.value}>{c.label}</option>

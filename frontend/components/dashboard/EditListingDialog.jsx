@@ -110,7 +110,7 @@ export default function EditListingDialog({ listing, open, onOpenChange, onSaved
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="e-year" className="label">Year</label>
-              <select id="e-year" className="input" value={form.year} onChange={set('year')}>
+              <select id="e-year" className="select" value={form.year} onChange={set('year')}>
                 <option value="">Select year…</option>
                 {YEARS.map((y) => (
                   <option key={y} value={y}>{y}</option>
@@ -126,7 +126,7 @@ export default function EditListingDialog({ listing, open, onOpenChange, onSaved
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="e-cond" className="label">Condition</label>
-              <select id="e-cond" className="input" value={form.condition} onChange={set('condition')}>
+              <select id="e-cond" className="select" value={form.condition} onChange={set('condition')}>
                 {CONDITIONS.map((c) => (
                   <option key={c.value} value={c.value}>{c.label}</option>
                 ))}
@@ -134,7 +134,7 @@ export default function EditListingDialog({ listing, open, onOpenChange, onSaved
             </div>
             <div>
               <label htmlFor="e-city" className="label">City</label>
-              <select id="e-city" className="input" value={form.city} onChange={set('city')}>
+              <select id="e-city" className="select" value={form.city} onChange={set('city')}>
                 {CITIES.map((c) => (
                   <option key={c.value} value={c.value}>{c.label}</option>
                 ))}
@@ -144,7 +144,7 @@ export default function EditListingDialog({ listing, open, onOpenChange, onSaved
 
           <div>
             <label htmlFor="e-subject" className="label">Subject</label>
-            <select id="e-subject" className="input" value={form.subject} onChange={set('subject')}>
+            <select id="e-subject" className="select" value={form.subject} onChange={set('subject')}>
               <option value="">Select subject…</option>
               {SUBJECTS.map((s) => (
                 <option key={s} value={s}>{s}</option>

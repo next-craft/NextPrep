@@ -89,7 +89,7 @@ export default function SettingsPage() {
 
         <div>
           <label htmlFor="city" className="label">City</label>
-          <select id="city" className="input" value={form.city} onChange={set('city')}>
+          <select id="city" className="select" value={form.city} onChange={set('city')}>
             <option value="">Not set</option>
             {!cityInList && me.city && <option value={me.city}>{me.city}</option>}
             {CITIES.map((c) => (

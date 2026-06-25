@@ -79,7 +79,7 @@ export default function ListingFilters({ current = {}, onNavigate, showHeader = 
         <label htmlFor="f-exam" className="label">Exam category</label>
         <select
           id="f-exam"
-          className="input"
+          className="select"
           value={current.exam_category || ''}
           onChange={(e) => handleChange('exam_category', e.target.value)}
         >
@@ -94,7 +94,7 @@ export default function ListingFilters({ current = {}, onNavigate, showHeader = 
         <label htmlFor="f-type" className="label">Material type</label>
         <select
           id="f-type"
-          className="input"
+          className="select"
           value={current.listing_type || ''}
           onChange={(e) => handleChange('listing_type', e.target.value)}
         >
@@ -109,7 +109,7 @@ export default function ListingFilters({ current = {}, onNavigate, showHeader = 
         <label htmlFor="f-condition" className="label">Condition</label>
         <select
           id="f-condition"
-          className="input"
+          className="select"
           value={current.condition || ''}
           onChange={(e) => handleChange('condition', e.target.value)}
         >
@@ -124,7 +124,7 @@ export default function ListingFilters({ current = {}, onNavigate, showHeader = 
         <label htmlFor="f-city" className="label">City</label>
         <select
           id="f-city"
-          className="input"
+          className="select"
           value={current.city || ''}
           onChange={(e) => handleChange('city', e.target.value)}
         >
@@ -139,7 +139,7 @@ export default function ListingFilters({ current = {}, onNavigate, showHeader = 
         <label htmlFor="f-subject" className="label">Subject</label>
         <select
           id="f-subject"
-          className="input"
+          className="select"
           value={current.subject || ''}
           onChange={(e) => handleChange('subject', e.target.value)}
         >
