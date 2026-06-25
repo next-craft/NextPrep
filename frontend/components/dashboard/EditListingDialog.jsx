@@ -15,6 +15,7 @@ import { toast } from '@/components/ui/sonner'
 import { CONDITIONS } from '@/constants/conditions'
 import { CITIES } from '@/constants/cities'
 import { SUBJECTS } from '@/constants/subjects'
+import { YEARS } from '@/constants/years'
 import { LISTING_TYPE_LABEL } from '@/lib/utils'
 import { EXAM_CATEGORY_LABEL } from '@/constants/examCategories'
 import ImageUploader from '@/components/listings/ImageUploader'
@@ -28,6 +29,8 @@ export default function EditListingDialog({ listing, open, onOpenChange, onSaved
     subject: listing.subject || '',
     asking_price: listing.asking_price ?? '',
     original_price: listing.original_price ?? '',
+    year: listing.year ?? '',
+    edition: listing.edition || '',
     condition: listing.condition || 'A',
     city: listing.city || '',
   })
@@ -56,6 +59,8 @@ export default function EditListingDialog({ listing, open, onOpenChange, onSaved
       subject: form.subject || null,
       asking_price: form.asking_price ? parseInt(form.asking_price, 10) : undefined,
       original_price: form.original_price ? parseInt(form.original_price, 10) : null,
+      year: form.year ? parseInt(form.year, 10) : null,
+      edition: form.edition || null,
       condition: form.condition,
       city: form.city,
       images,
@@ -99,6 +104,22 @@ export default function EditListingDialog({ listing, open, onOpenChange, onSaved
             <div>
               <label htmlFor="e-orig" className="label">Original price (₹)</label>
               <input id="e-orig" className="input" type="number" min={1} value={form.original_price} onChange={set('original_price')} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="e-year" className="label">Year</label>
+              <select id="e-year" className="input" value={form.year} onChange={set('year')}>
+                <option value="">Select year…</option>
+                {YEARS.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="e-edition" className="label">Edition</label>
+              <input id="e-edition" className="input" value={form.edition} onChange={set('edition')} maxLength={50} placeholder="e.g. 7th edition" />
             </div>
           </div>
 

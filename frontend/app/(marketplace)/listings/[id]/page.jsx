@@ -240,6 +240,16 @@ export default async function ListingDetailPage({ params }) {
                     Subject: <span className="font-medium text-foreground">{listing.subject}</span>
                   </p>
                 )}
+                {listing.edition && (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Edition: <span className="font-medium text-foreground">{listing.edition}</span>
+                  </p>
+                )}
+                {listing.year && (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Year: <span className="font-medium text-foreground">{listing.year}</span>
+                  </p>
+                )}
               </StaggerItem>
 
               <StaggerItem className="my-6 h-px bg-gradient-to-r from-transparent via-border to-transparent" />

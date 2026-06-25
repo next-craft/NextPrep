@@ -29,6 +29,8 @@ async def create_listing(
         condition=data.condition,
         asking_price=data.asking_price,
         original_price=data.original_price,
+        year=data.year,
+        edition=data.edition,
         city=data.city,
         images=data.images or [],
         passkey_hash="placeholder",  # overwritten after insert, once listing.id is known
