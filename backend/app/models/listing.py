@@ -40,7 +40,7 @@ class Listing(Base):
         CheckConstraint("condition IN ('A', 'B', 'C')", name="ck_condition"),
         CheckConstraint("asking_price > 0", name="ck_asking_price_positive"),
         CheckConstraint("original_price IS NULL OR original_price > 0", name="ck_original_price_positive"),
-        CheckConstraint("year IS NULL OR (year >= 2015 AND year <= 2026)", name="ck_year_range"),
+        CheckConstraint("year IS NULL OR (year >= 2000 AND year <= 2026)", name="ck_year_range"),
         CheckConstraint(
             "NOT (is_available = TRUE AND (sold_at IS NOT NULL OR deleted_at IS NOT NULL))",
             name="no_available_sold_listing",

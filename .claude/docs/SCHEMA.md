@@ -43,8 +43,8 @@ listing_type    TEXT NOT NULL
 condition       TEXT NOT NULL                 -- A / B / C
 asking_price    INTEGER NOT NULL              -- whole rupees, no decimals
 original_price  INTEGER                       -- whole rupees
-year            INTEGER                       -- optional, CHECK 2015–2026 (book year)
-  CHECK (year IS NULL OR (year >= 2015 AND year <= 2026))
+year            INTEGER                       -- optional, CHECK 2000–2026 (book year)
+  CHECK (year IS NULL OR (year >= 2000 AND year <= 2026))
 edition         TEXT                          -- optional, free text (e.g. "7th edition")
 city            TEXT NOT NULL
 images          TEXT[]                        -- Cloudinary URLs, max 5
