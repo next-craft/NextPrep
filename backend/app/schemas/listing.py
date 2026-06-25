@@ -24,6 +24,8 @@ class ListingCreate(BaseModel):
     condition: str
     asking_price: int = Field(..., gt=0)
     original_price: Optional[int] = Field(None, gt=0)
+    year: Optional[int] = Field(None, ge=2015, le=2026)
+    edition: Optional[str] = Field(None, max_length=50)
     city: str = Field(..., min_length=1)
     images: list[str] = Field(..., min_length=1, max_length=5)  # at least one image required
 
@@ -63,6 +65,8 @@ class ListingUpdate(BaseModel):
     condition: Optional[str] = None
     asking_price: Optional[int] = Field(None, gt=0)
     original_price: Optional[int] = Field(None, gt=0)
+    year: Optional[int] = Field(None, ge=2015, le=2026)
+    edition: Optional[str] = Field(None, max_length=50)
     city: Optional[str] = Field(None, min_length=1)
     images: Optional[list[str]] = Field(None, max_length=5)
     is_available: Optional[bool] = None
@@ -93,6 +97,8 @@ class ListingOut(BaseModel):
     condition: str
     asking_price: int
     original_price: Optional[int]
+    year: Optional[int]
+    edition: Optional[str]
     city: str
     images: Optional[list[str]]
     is_available: bool

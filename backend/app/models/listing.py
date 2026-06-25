@@ -22,6 +22,8 @@ class Listing(Base):
     condition              = Column(String, nullable=False)
     asking_price           = Column(Integer, nullable=False)
     original_price         = Column(Integer)
+    year                   = Column(Integer)   # optional — year of the book (2015–2026)
+    edition                = Column(String)    # optional — free-text edition (e.g. "7th edition")
     city                   = Column(String, nullable=False)
     images                 = Column(ARRAY(String))
     is_available           = Column(Boolean, nullable=False, server_default="true")
@@ -38,6 +40,7 @@ class Listing(Base):
         CheckConstraint("condition IN ('A', 'B', 'C')", name="ck_condition"),
         CheckConstraint("asking_price > 0", name="ck_asking_price_positive"),
         CheckConstraint("original_price IS NULL OR original_price > 0", name="ck_original_price_positive"),
+        CheckConstraint("year IS NULL OR (year >= 2015 AND year <= 2026)", name="ck_year_range"),
         CheckConstraint(
             "NOT (is_available = TRUE AND (sold_at IS NOT NULL OR deleted_at IS NOT NULL))",
             name="no_available_sold_listing",

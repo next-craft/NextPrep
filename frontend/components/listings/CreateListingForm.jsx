@@ -8,6 +8,7 @@ import { LISTING_TYPES } from '@/constants/listingTypes'
 import { CONDITIONS } from '@/constants/conditions'
 import { CITIES } from '@/constants/cities'
 import { SUBJECTS } from '@/constants/subjects'
+import { YEARS } from '@/constants/years'
 import ImageUploader from '@/components/listings/ImageUploader'
 import PasskeyReveal from '@/components/listings/PasskeyReveal'
 import { Reveal, Stagger, StaggerItem } from '@/components/shared/motion'
@@ -40,6 +41,7 @@ export default function CreateListingForm() {
     const fd = new FormData(e.target)
     const asking_price = parseInt(fd.get('asking_price'), 10)
     const original_price = fd.get('original_price') ? parseInt(fd.get('original_price'), 10) : undefined
+    const year = fd.get('year') ? parseInt(fd.get('year'), 10) : undefined
     mutate({
       title: fd.get('title'),
       description: fd.get('description') || undefined,
@@ -49,6 +51,8 @@ export default function CreateListingForm() {
       condition: fd.get('condition'),
       asking_price,
       original_price,
+      year,
+      edition: fd.get('edition') || undefined,
       city: fd.get('city'),
       images,
     })
@@ -151,6 +155,21 @@ export default function CreateListingForm() {
             <div>
               <label htmlFor="original_price" className="label">Original price (₹)</label>
               <input id="original_price" name="original_price" type="number" min={1} className="input" placeholder="750" />
+            </div>
+
+            <div>
+              <label htmlFor="year" className="label">Year</label>
+              <select id="year" name="year" defaultValue="" className="input">
+                <option value="">Select year…</option>
+                {YEARS.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="edition" className="label">Edition</label>
+              <input id="edition" name="edition" maxLength={50} className="input" placeholder="e.g. 7th edition" />
             </div>
 
             <div className="sm:col-span-2">
