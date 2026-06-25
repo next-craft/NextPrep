@@ -15,7 +15,8 @@ class User(Base):
     # public.users in sync with auth.users instead. See DECISIONS.md.
     id            = Column(UUID(as_uuid=True), primary_key=True)
     full_name     = Column(String, nullable=False)
-    city          = Column(String)
+    state         = Column(String)  # state/UT (igod); nullable
+    city          = Column(String)  # district within `state` (igod); nullable
     avatar_url    = Column(String)
     # Verification badge — earned, not granted at signup: True once books_sold >= 10
     # verified transactions. Set in the verify-passkey path; no longer set by the trigger.

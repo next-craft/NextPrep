@@ -2,7 +2,9 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+
+from app.constants.locations import is_valid_state, is_valid_city
 
 
 class UserMe(BaseModel):
@@ -10,6 +12,7 @@ class UserMe(BaseModel):
 
     id: uuid.UUID
     full_name: str
+    state: Optional[str] = None
     city: Optional[str] = None
     avatar_url: Optional[str] = None
     is_verified: bool  # verification badge — earned at 10 verified sales
@@ -24,6 +27,7 @@ class UserPublic(BaseModel):
 
     id: uuid.UUID
     full_name: str
+    state: Optional[str] = None
     city: Optional[str] = None
     avatar_url: Optional[str] = None
     is_verified: bool  # verification badge — earned at 10 verified sales
@@ -35,6 +39,7 @@ class UserPublic(BaseModel):
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
+    state: Optional[str] = None
     city: Optional[str] = None
     avatar_url: Optional[str] = None
 
@@ -46,3 +51,18 @@ class UserUpdate(BaseModel):
         if v is None or not v.strip():
             raise ValueError("full_name must be non-empty")
         return v.strip()
+
+    @field_validator("state")
+    @classmethod
+    def validate_state(cls, v: Optional[str]) -> Optional[str]:
+        # "" / None mean "not set" — allowed. A non-empty value must be a real state.
+        if v and not is_valid_state(v):
+            raise ValueError("state must be a valid Indian state or union territory")
+        return v
+
+    @model_validator(mode="after")
+    def validate_city_in_state(self):
+        # Settings submits state + city together. Validate the pair only when both are set.
+        if self.state and self.city and not is_valid_city(self.state, self.city):
+            raise ValueError(f"city must be a district of {self.state}")
+        return self

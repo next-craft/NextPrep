@@ -4,7 +4,8 @@ import { Search, X } from 'lucide-react'
 import { EXAM_CATEGORIES } from '@/constants/examCategories'
 import { LISTING_TYPES } from '@/constants/listingTypes'
 import { CONDITIONS } from '@/constants/conditions'
-import { CITIES } from '@/constants/cities'
+import { STATES } from '@/constants/states'
+import { DISTRICTS_BY_STATE } from '@/constants/districts'
 import { SUBJECTS } from '@/constants/subjects'
 import { FILTER_KEYS } from '@/constants/filters'
 
@@ -121,16 +122,33 @@ export default function ListingFilters({ current = {}, onNavigate, showHeader = 
       </div>
 
       <div>
-        <label htmlFor="f-city" className="label">City</label>
+        <label htmlFor="f-state" className="label">State</label>
+        <select
+          id="f-state"
+          className="select"
+          value={current.state || ''}
+          // Changing state clears any city filter so the two never disagree.
+          onChange={(e) => apply({ ...current, state: e.target.value || undefined, city: undefined })}
+        >
+          <option value="">All states</option>
+          {STATES.map((s) => (
+            <option key={s.value} value={s.value}>{s.label}</option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label htmlFor="f-city" className="label">City / District</label>
         <select
           id="f-city"
           className="select"
           value={current.city || ''}
+          disabled={!current.state}
           onChange={(e) => handleChange('city', e.target.value)}
         >
-          <option value="">All cities</option>
-          {CITIES.map((c) => (
-            <option key={c.value} value={c.value}>{c.label}</option>
+          <option value="">{current.state ? 'All districts' : 'Select a state first'}</option>
+          {(DISTRICTS_BY_STATE[current.state] || []).map((d) => (
+            <option key={d} value={d}>{d}</option>
           ))}
         </select>
       </div>

@@ -8,17 +8,19 @@ import { useMe } from '@/lib/queries'
 import { toast } from '@/components/ui/sonner'
 import Avatar from '@/components/shared/avatar'
 import AvatarUploader from '@/components/shared/avatar-uploader'
-import { CITIES } from '@/constants/cities'
+import { STATES } from '@/constants/states'
+import { DISTRICTS_BY_STATE } from '@/constants/districts'
 
 export default function SettingsPage() {
   const { data: me, isLoading } = useMe()
   const queryClient = useQueryClient()
-  const [form, setForm] = useState({ full_name: '', city: '', avatar_url: '' })
+  const [form, setForm] = useState({ full_name: '', state: '', city: '', avatar_url: '' })
 
   useEffect(() => {
     if (me) {
       setForm({
         full_name: me.full_name || '',
+        state: me.state || '',
         city: me.city || '',
         avatar_url: me.avatar_url || '',
       })
@@ -44,17 +46,17 @@ export default function SettingsPage() {
   }
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  // Changing the state resets the city, since districts are state-specific.
+  const setStateField = (e) => setForm((f) => ({ ...f, state: e.target.value, city: '' }))
   const submit = (e) => {
     e.preventDefault()
     save.mutate({
       full_name: form.full_name.trim(),
+      state: form.state || null,
       city: form.city || null,
       avatar_url: form.avatar_url || null,
     })
   }
-
-  // keep the current city selectable even if it predates the predefined list
-  const cityInList = CITIES.some((c) => c.value === me.city)
 
   return (
     <div className="container max-w-2xl py-8">
@@ -87,15 +89,25 @@ export default function SettingsPage() {
           <input id="full_name" className="input" value={form.full_name} onChange={set('full_name')} required maxLength={80} />
         </div>
 
-        <div>
-          <label htmlFor="city" className="label">City</label>
-          <select id="city" className="select" value={form.city} onChange={set('city')}>
-            <option value="">Not set</option>
-            {!cityInList && me.city && <option value={me.city}>{me.city}</option>}
-            {CITIES.map((c) => (
-              <option key={c.value} value={c.value}>{c.label}</option>
-            ))}
-          </select>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="state" className="label">State</label>
+            <select id="state" className="select" value={form.state} onChange={setStateField}>
+              <option value="">Not set</option>
+              {STATES.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="city" className="label">City / District</label>
+            <select id="city" className="select" value={form.city} onChange={set('city')} disabled={!form.state}>
+              <option value="">{form.state ? 'Not set' : 'Select a state first'}</option>
+              {(DISTRICTS_BY_STATE[form.state] || []).map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div>
