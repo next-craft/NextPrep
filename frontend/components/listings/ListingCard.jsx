@@ -1,9 +1,9 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { MapPin, BookOpen } from 'lucide-react'
+import { MapPin, BookOpen, Clock } from 'lucide-react'
 import PriceBlock from '@/components/shared/price-block'
 import { ConditionBadge, ListingTypeBadge } from '@/components/shared/badges'
-import { cn, listingStatus, isOptimizedImageHost } from '@/lib/utils'
+import { cn, listingStatus, isOptimizedImageHost, formatRelativeTime, formatDate } from '@/lib/utils'
 import { EXAM_CATEGORY_LABEL } from '@/constants/examCategories'
 
 export default function ListingCard({ listing, className }) {
@@ -51,6 +51,15 @@ export default function ListingCard({ listing, className }) {
         <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-1">
           <ListingTypeBadge type={listing.listing_type} />
           <ConditionBadge code={listing.condition} showLabel={false} />
+          {listing.created_at && (
+            <span
+              className="ml-auto inline-flex items-center gap-1 whitespace-nowrap text-[11px] text-muted-foreground"
+              title={`Listed ${formatDate(listing.created_at)}`}
+            >
+              <Clock className="h-3 w-3 shrink-0" />
+              {formatRelativeTime(listing.created_at)}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
