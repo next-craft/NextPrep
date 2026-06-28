@@ -35,6 +35,9 @@ export default function Footer() {
             <Link href="/listings?listing_type=NOTES" className="link-underline text-muted-foreground hover:text-foreground">
               Notes
             </Link>
+            <Link href="/colleges" className="link-underline text-muted-foreground hover:text-foreground">
+              Colleges
+            </Link>
             <Link href="/contact" className="link-underline text-muted-foreground hover:text-foreground">
               Contact us
             </Link>

@@ -210,12 +210,15 @@ export default async function Home() {
       {/* ── Browse by exam ─────────────────────────────────────────────── */}
       <section className="cv-auto container py-10">
         <div className="glass p-6 sm:p-8">
-          <Reveal
-            inView
-            as="h2"
-            className="font-display text-2xl font-semibold"
-          >
-            Browse by exam
+          <Reveal inView className="flex items-end justify-between gap-4">
+            <h2 className="font-display text-2xl font-semibold">Browse by exam</h2>
+            <Link
+              href="/colleges"
+              className="group inline-flex shrink-0 items-center gap-1 text-sm font-medium text-primary hover:text-light_bronze-200"
+            >
+              Browse by college{" "}
+              <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+            </Link>
           </Reveal>
           <Stagger inView gap={0.04} className="mt-5 flex flex-wrap gap-2.5">
             {POPULAR_EXAM_CATEGORIES.map((value) => (
