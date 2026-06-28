@@ -1,6 +1,7 @@
 import { cache } from 'react'
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { BookOpen } from 'lucide-react'
+import { BookOpen, GraduationCap } from 'lucide-react'
 import ProfileHeader from '@/components/shared/profile-header'
 import ProfileListingGrid from '@/components/listings/ProfileListingGrid'
 import { EmptyState } from '@/components/shared/states'
@@ -93,6 +94,24 @@ export default async function UserProfilePage({ params }) {
     <div className="container py-8">
       <JsonLd data={[profileJsonLd, breadcrumbJsonLd]} />
       <ProfileHeader user={user} />
+
+      {/* Campus: canonical → links to the college community page; free text → unlinked muted chip. */}
+      {user.college ? (
+        <div className="mt-4">
+          <Link
+            href={`/colleges/${user.college.slug}`}
+            className="inline-flex items-center gap-1.5 rounded-full border border-light_bronze-700 bg-papaya_whip-800 px-3 py-1 text-sm font-medium text-light_bronze-200 transition-colors hover:border-light_bronze-500"
+          >
+            <GraduationCap className="h-4 w-4" /> {user.college.name}
+          </Link>
+        </div>
+      ) : user.college_other ? (
+        <div className="mt-4">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-sm text-muted-foreground">
+            <GraduationCap className="h-4 w-4" /> {user.college_other}
+          </span>
+        </div>
+      ) : null}
 
       <section className="mt-10">
         <Reveal inView as="h2" className="mb-4 font-display text-lg font-semibold">

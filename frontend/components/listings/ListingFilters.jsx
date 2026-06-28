@@ -1,5 +1,6 @@
 'use client'
 import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import { Search, X } from 'lucide-react'
 import { EXAM_CATEGORIES } from '@/constants/examCategories'
 import { LISTING_TYPES } from '@/constants/listingTypes'
@@ -8,6 +9,7 @@ import { STATES } from '@/constants/states'
 import { DISTRICTS_BY_STATE } from '@/constants/districts'
 import { SUBJECTS } from '@/constants/subjects'
 import { FILTER_KEYS } from '@/constants/filters'
+import CollegeCombobox from '@/components/listings/CollegeCombobox'
 
 export default function ListingFilters({ current = {}, onNavigate, showHeader = true }) {
   const router = useRouter()
@@ -167,6 +169,47 @@ export default function ListingFilters({ current = {}, onNavigate, showHeader = 
           ))}
         </select>
       </div>
+
+      <CollegeFilter
+        slug={current.college}
+        onChange={(value) => handleChange('college', value?.college?.slug ?? null)}
+      />
+    </div>
+  )
+}
+
+/**
+ * College filter — single-select. Only the canonical slug is a filter value
+ * (`college_other` free text is never a filter). When a slug is present in the
+ * URL on load, resolve it to a display name via GET /colleges/{slug} so the
+ * chosen campus shows by name in the combobox.
+ */
+function CollegeFilter({ slug, onChange }) {
+  // Resolve the slug → { slug, name } brief so the combobox shows the campus name.
+  const { data: resolved } = useQuery({
+    queryKey: ['college-by-slug', slug],
+    enabled: !!slug,
+    staleTime: 5 * 60_000,
+    retry: false,
+    queryFn: async () => {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/colleges/${encodeURIComponent(slug)}?brief=1`)
+      if (!res.ok) throw new Error('College not found')
+      const data = await res.json()
+      return data?.college ?? null
+    },
+  })
+
+  const value = slug
+    ? { college_id: resolved?.id ?? null, college_other: null, college: resolved ?? { slug, name: slug } }
+    : { college_id: null, college_other: null, college: null }
+
+  // Filter mode: only a canonical slug is ever a filter value. If the combobox's
+  // "my college isn't listed" path yields free text (college_other), it carries no
+  // slug, so onChange below clears the param — free text is never a filter.
+  return (
+    <div>
+      <label className="label">College</label>
+      <CollegeCombobox value={value} onChange={onChange} allowOther={false} />
     </div>
   )
 }

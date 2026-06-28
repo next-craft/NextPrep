@@ -4,6 +4,7 @@ from datetime import datetime
 import uuid
 
 from app.constants.locations import is_valid_state, is_valid_city
+from app.schemas.college import CollegeBrief
 
 VALID_EXAM_CATEGORIES = {
     "JEE_MAINS", "JEE_ADVANCED", "NEET_UG", "NEET_PG",
@@ -30,6 +31,8 @@ class ListingCreate(BaseModel):
     edition: Optional[str] = Field(None, max_length=50)
     state: str = Field(..., min_length=1)
     city: str = Field(..., min_length=1)  # district within `state`
+    college_id: Optional[uuid.UUID] = None
+    college_other: Optional[str] = Field(None, max_length=120)
     images: list[str] = Field(..., min_length=1, max_length=5)  # at least one image required
 
     @field_validator("state")
@@ -43,6 +46,20 @@ class ListingCreate(BaseModel):
     def validate_city_in_state(self):
         if not is_valid_city(self.state, self.city):
             raise ValueError(f"city must be a district of {self.state}")
+        return self
+
+    @field_validator("college_other")
+    @classmethod
+    def clean_college_other(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip()
+        return v or None
+
+    @model_validator(mode="after")
+    def one_college_source(self):
+        if self.college_id is not None and self.college_other:
+            raise ValueError("Provide either college_id or college_other, not both.")
         return self
 
     @field_validator("exam_category")
@@ -85,6 +102,8 @@ class ListingUpdate(BaseModel):
     edition: Optional[str] = Field(None, max_length=50)
     state: Optional[str] = Field(None, min_length=1)
     city: Optional[str] = Field(None, min_length=1)
+    college_id: Optional[uuid.UUID] = None
+    college_other: Optional[str] = Field(None, max_length=120)
     images: Optional[list[str]] = Field(None, max_length=5)
     is_available: Optional[bool] = None
 
@@ -100,6 +119,20 @@ class ListingUpdate(BaseModel):
         # The edit form always submits state + city together; validate the pair when both are present.
         if self.state is not None and self.city is not None and not is_valid_city(self.state, self.city):
             raise ValueError(f"city must be a district of {self.state}")
+        return self
+
+    @field_validator("college_other")
+    @classmethod
+    def clean_college_other(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip()
+        return v or None
+
+    @model_validator(mode="after")
+    def one_college_source(self):
+        if self.college_id is not None and self.college_other:
+            raise ValueError("Provide either college_id or college_other, not both.")
         return self
 
     @field_validator("condition")
@@ -132,6 +165,9 @@ class ListingOut(BaseModel):
     edition: Optional[str]
     state: Optional[str]
     city: str
+    # Canonical campus brief (from the ORM relationship); raw college_id is never exposed.
+    college: Optional[CollegeBrief] = None
+    college_other: Optional[str] = None  # un-promoted free-text campus, display-only
     images: Optional[list[str]]
     is_available: bool
     is_sold: bool  # computed: sold_at IS NOT NULL — never expose sold_at itself

@@ -10,6 +10,7 @@ from app.models.listing import Listing
 from app.models.listing_view import ListingView
 from app.schemas.listing import ListingCreate, ListingUpdate
 from app.core.security import generate_passkey, hash_passkey
+from app.services import college_service
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,12 @@ async def create_listing(
     db: AsyncSession, seller_id: str, data: ListingCreate
 ) -> tuple[Listing, str]:
     passkey = generate_passkey()
+
+    # Validate the canonical campus references an active college (the Pydantic layer
+    # can't reach the DB). A forged/inactive id is rejected, not silently stored.
+    if data.college_id is not None:
+        if await college_service.get_active_by_id(db, data.college_id) is None:
+            raise ValueError("Unknown or inactive college.")
 
     listing = Listing(
         seller_id=UUID(seller_id),
@@ -33,6 +40,8 @@ async def create_listing(
         edition=data.edition,
         state=data.state,
         city=data.city,
+        college_id=data.college_id,
+        college_other=data.college_other,
         images=data.images or [],
         passkey_hash="placeholder",  # overwritten after insert, once listing.id is known
     )
@@ -57,6 +66,8 @@ async def get_listings(
     condition: str | None = None,
     listing_type: str | None = None,
     seller_id: str | None = None,
+    college: str | None = None,  # a college SLUG; resolved to an id below
+    college_id: UUID | None = None,  # a pre-resolved college id (skips the slug lookup)
 ) -> list[Listing]:
     stmt = select(Listing).where(
         Listing.is_available == True,
@@ -83,6 +94,16 @@ async def get_listings(
         stmt = stmt.where(Listing.listing_type == listing_type)
     if seller_id:
         stmt = stmt.where(Listing.seller_id == UUID(seller_id))
+    if college:
+        matched_college = await college_service.get_by_slug(db, college)
+        if matched_college is None:
+            return []  # unknown slug -> no results (consistent with other filters)
+        # college_other rows have college_id IS NULL and therefore never match.
+        stmt = stmt.where(Listing.college_id == matched_college.id)
+    elif college_id:
+        # `college` (slug) and `college_id` are mutually exclusive; slug wins. The
+        # caller already resolved the slug (e.g. GET /colleges/{slug}) — filter directly.
+        stmt = stmt.where(Listing.college_id == college_id)
 
     stmt = stmt.order_by(Listing.created_at.desc())
     result = await db.execute(stmt)
@@ -140,6 +161,18 @@ async def update_listing(
 
     if listing.sold_at is not None and update_data.get("is_available") is True:
         raise ValueError("Cannot reactivate a sold listing.")
+
+    # Validate a newly-set canonical campus and keep the college_id XOR college_other
+    # invariant after partial updates: setting one source clears the other.
+    if update_data.get("college_id") is not None:
+        if await college_service.get_active_by_id(db, update_data["college_id"]) is None:
+            raise ValueError("Unknown or inactive college.")
+        update_data["college_other"] = None
+    elif "college_other" in update_data and update_data["college_other"] is not None:
+        # A real free-text campus is being set — drop any canonical id so the two
+        # never both stick. (An explicit null only clears the free text and leaves
+        # an existing college_id untouched.)
+        update_data["college_id"] = None
 
     for field, value in update_data.items():
         setattr(listing, field, value)

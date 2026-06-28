@@ -30,7 +30,10 @@ async def update_me(
     db: AsyncSession = Depends(get_db),
     user=Depends(verify_token),
 ):
-    updated = await user_service.update_user(db, user["sub"], data)
+    try:
+        updated = await user_service.update_user(db, user["sub"], data)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if not updated:
         raise HTTPException(404, "User not found.")
     return UserMe.model_validate(updated)

@@ -4,6 +4,7 @@ from sqlalchemy import (
     Integer, String, TIMESTAMP, text,
 )
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,8 @@ class Listing(Base):
     edition                = Column(String)    # optional — free-text edition (e.g. "7th edition")
     state                  = Column(String)    # state/UT (igod). Nullable for pre-existing rows.
     city                   = Column(String, nullable=False)  # district within `state` (igod)
+    college_id             = Column(UUID(as_uuid=True), ForeignKey("colleges.id", ondelete="SET NULL"))  # canonical campus; nullable
+    college_other          = Column(String)    # free-text campus not yet in `colleges`; display-only, never filtered
     images                 = Column(ARRAY(String))
     is_available           = Column(Boolean, nullable=False, server_default="true")
     sold_at                = Column(TIMESTAMP(timezone=True))
@@ -52,6 +55,9 @@ class Listing(Base):
         ),
         # No explicit schema — uses Supabase default search_path (public)
     )
+
+    # Canonical campus, eager-loaded so ListingOut can embed CollegeBrief.
+    college = relationship("College", lazy="selectin")
 
     @property
     def is_sold(self) -> bool:

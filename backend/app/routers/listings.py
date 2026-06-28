@@ -25,12 +25,13 @@ async def list_listings(
     condition: str | None = Query(None),
     listing_type: str | None = Query(None),
     seller_id: str | None = Query(None),
+    college: str | None = Query(None, max_length=120),  # college slug filter
     db: AsyncSession = Depends(get_db),
 ):
     return await listing_service.get_listings(
         db, q=q, exam_category=exam_category, subject=subject,
         state=state, city=city, condition=condition, listing_type=listing_type,
-        seller_id=seller_id,
+        seller_id=seller_id, college=college,
     )
 
 
@@ -41,7 +42,11 @@ async def create_listing(
     user=Depends(verify_token),
 ):
     seller_id = user["sub"]
-    listing, passkey = await listing_service.create_listing(db, seller_id, data)
+    try:
+        listing, passkey = await listing_service.create_listing(db, seller_id, data)
+    except ValueError as e:
+        # e.g. an unknown/inactive college_id rejected by the service layer
+        raise HTTPException(status_code=400, detail=str(e))
     return ListingCreateOut(listing=ListingOut.model_validate(listing), passkey=passkey)
 
 

@@ -8,13 +8,17 @@ import { useMe } from '@/lib/queries'
 import { toast } from '@/components/ui/sonner'
 import Avatar from '@/components/shared/avatar'
 import AvatarUploader from '@/components/shared/avatar-uploader'
+import CollegeCombobox from '@/components/listings/CollegeCombobox'
 import { STATES } from '@/constants/states'
 import { DISTRICTS_BY_STATE } from '@/constants/districts'
+
+const EMPTY_COLLEGE = { college_id: null, college_other: null, college: null }
 
 export default function SettingsPage() {
   const { data: me, isLoading } = useMe()
   const queryClient = useQueryClient()
   const [form, setForm] = useState({ full_name: '', state: '', city: '', avatar_url: '' })
+  const [college, setCollege] = useState(EMPTY_COLLEGE)
 
   useEffect(() => {
     if (me) {
@@ -24,11 +28,18 @@ export default function SettingsPage() {
         city: me.city || '',
         avatar_url: me.avatar_url || '',
       })
+      setCollege(
+        me.college
+          ? { college_id: me.college.id ?? null, college_other: null, college: me.college }
+          : me.college_other
+            ? { college_id: null, college_other: me.college_other, college: null }
+            : EMPTY_COLLEGE
+      )
     }
   }, [me])
 
   const save = useMutation({
-    // API: PATCH /users/me — only full_name, city, avatar_url are accepted
+    // API: PATCH /users/me — full_name, state, city, avatar_url, college_id/college_other
     mutationFn: (payload) => api.patch('/users/me', payload).then((r) => r.data),
     onSuccess: (data) => {
       queryClient.setQueryData(['me'], data)
@@ -55,6 +66,9 @@ export default function SettingsPage() {
       state: form.state || null,
       city: form.city || null,
       avatar_url: form.avatar_url || null,
+      // At most one is set (combobox-enforced); send both so the campus can be cleared.
+      college_id: college.college_id || null,
+      college_other: college.college_other || null,
     })
   }
 
@@ -108,6 +122,14 @@ export default function SettingsPage() {
               ))}
             </select>
           </div>
+        </div>
+
+        <div>
+          <label className="label">College</label>
+          <CollegeCombobox value={college} onChange={setCollege} />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Optional — pre-fills the college on new listings.
+          </p>
         </div>
 
         <div>
