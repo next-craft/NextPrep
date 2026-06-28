@@ -179,7 +179,7 @@ export default function CollegeCombobox({
       )}
 
       {open && !college_id && (
-        <ul className="absolute z-20 mt-1.5 max-h-64 w-full overflow-auto rounded-md border border-input bg-card py-1 shadow-warm-lg">
+        <ul className="absolute z-50 mt-1.5 max-h-64 w-full overflow-auto rounded-md border border-input bg-card py-1 shadow-warm-lg">
           {isFetching && (
             <li className="px-3.5 py-2 text-sm text-muted-foreground">Searching…</li>
           )}

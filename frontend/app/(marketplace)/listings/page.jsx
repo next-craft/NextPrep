@@ -88,7 +88,11 @@ export default async function ListingsPage({ searchParams }) {
 
       <div className="mt-6 flex gap-8">
         <aside className="hidden w-64 shrink-0 lg:block">
-          <div className="sticky top-20">
+          {/* z-30: the sticky wrapper is its own stacking context; lift it above the
+              relative footer (which is later in the DOM) so the College typeahead
+              dropdown overlays the footer instead of being painted under it. Stays
+              below the z-40 navbar. */}
+          <div className="sticky top-20 z-30">
             <ListingFilters current={sp} />
           </div>
         </aside>
