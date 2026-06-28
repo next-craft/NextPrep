@@ -12,6 +12,8 @@ id            UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE
 full_name     TEXT NOT NULL
 state         TEXT                          -- state/UT (igod), nullable
 city          TEXT                          -- district within `state` (igod), nullable
+college_id    UUID REFERENCES colleges(id) ON DELETE SET NULL  -- canonical campus (self-asserted), nullable
+college_other TEXT                          -- free-text campus pending manual promotion, nullable
 avatar_url    TEXT
 is_verified   BOOLEAN DEFAULT FALSE    -- verification badge: auto TRUE once books_sold >= 10
 seller_rating NUMERIC(3,2)            -- avg of received 1-5 seller ratings
@@ -49,6 +51,8 @@ year            INTEGER                       -- optional, CHECK 2000–2026 (bo
 edition         TEXT                          -- optional, free text (e.g. "7th edition")
 state           TEXT                          -- state/UT (igod). Nullable (legacy rows backfilled).
 city            TEXT NOT NULL                 -- district within `state` (igod). Validated app-side.
+college_id      UUID REFERENCES colleges(id) ON DELETE SET NULL  -- canonical campus; nullable
+college_other   TEXT                          -- free-text campus pending manual promotion; nullable
 images          TEXT[]                        -- Cloudinary URLs, max 5
 is_available    BOOLEAN DEFAULT TRUE
 sold_at         TIMESTAMPTZ DEFAULT NULL
@@ -72,6 +76,32 @@ CONSTRAINT no_available_sold_listing CHECK (
 - Passkey stored as hash only — plaintext never persisted. See TRANSACTIONS.md.
 - Constraint blocks only: `is_available=TRUE AND sold_at IS NOT NULL` (impossible state)
 - Valid states: `is_available=TRUE/sold_at=NULL` (active), `is_available=FALSE/sold_at=NULL` (paused/suspended), `is_available=FALSE/sold_at=NOT NULL` (sold)
+
+---
+
+## colleges
+
+Canonical campus list for the college-discovery feature (Spec 15). Seeded in migration
+`0012` and grown via the Supabase dashboard (no code deploy).
+
+```sql
+id          UUID PRIMARY KEY DEFAULT gen_random_uuid()
+slug        TEXT NOT NULL UNIQUE          -- URL/filter key, e.g. "iit-bombay"
+name        TEXT NOT NULL UNIQUE          -- display name, e.g. "IIT Bombay"
+state       TEXT                          -- igod state/UT, for disambiguation (nullable)
+city        TEXT                          -- igod district, for disambiguation (nullable)
+is_active   BOOLEAN NOT NULL DEFAULT TRUE -- soft-hide without deleting FK references
+created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+```
+
+- `listings.college_id` and `public.users.college_id` reference this table
+  (`ON DELETE SET NULL` — retiring a college never deletes a listing or user).
+- College is a **self-asserted discovery dimension** (like `city`) — **never** tied to
+  `is_verified`. It is deliberately a table+FK (not denormalized TEXT like state/city)
+  so `/colleges/[slug]` has stable slugs and the list grows without a deploy. See DECISIONS.md.
+- **At most one** of (`college_id`, `college_other`) is set per listing/user row
+  (app-enforced). `college_other` is free text shown but **never** filtered — a holding
+  pen for campuses not yet canonical, promoted manually (see Debug queries).
 
 ---
 
@@ -243,4 +273,13 @@ WHERE NOT EXISTS (
 -- Listings with invalidated passkey but still available (should not exist)
 SELECT * FROM listings
 WHERE passkey_invalidated = TRUE AND is_available = TRUE;
+
+-- Un-promoted campuses (the "not listed" holding pen), most-requested first.
+-- Promote one: INSERT a colleges row, backfill college_id by matching college_other,
+-- then NULL the free text (Spec 15 promotion workflow).
+SELECT college_other, COUNT(*) AS requests FROM (
+  SELECT college_other FROM listings     WHERE college_id IS NULL AND college_other IS NOT NULL
+  UNION ALL
+  SELECT college_other FROM public.users WHERE college_id IS NULL AND college_other IS NOT NULL
+) s GROUP BY college_other ORDER BY requests DESC;
 ```

@@ -1,8 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import api from '@/lib/api'
+import { useMe } from '@/lib/queries'
 import { EXAM_CATEGORIES } from '@/constants/examCategories'
 import { LISTING_TYPES } from '@/constants/listingTypes'
 import { CONDITIONS } from '@/constants/conditions'
@@ -11,14 +12,33 @@ import { DISTRICTS_BY_STATE } from '@/constants/districts'
 import { SUBJECTS } from '@/constants/subjects'
 import { YEARS } from '@/constants/years'
 import ImageUploader from '@/components/listings/ImageUploader'
+import CollegeCombobox from '@/components/listings/CollegeCombobox'
 import PasskeyReveal from '@/components/listings/PasskeyReveal'
 import { Reveal, Stagger, StaggerItem } from '@/components/shared/motion'
+
+const EMPTY_COLLEGE = { college_id: null, college_other: null, college: null }
 
 export default function CreateListingForm() {
   const [passkey, setPasskey] = useState(null)
   const [listingId, setListingId] = useState(null)
   const [images, setImages] = useState([])
   const [state, setState] = useState('') // drives the dependent City/District options
+  const [college, setCollege] = useState(EMPTY_COLLEGE)
+
+  // Autofill the campus from the signed-in user's profile, but keep it editable /
+  // clearable — a listing can carry a different campus than the profile. Only
+  // seed while the field is still untouched (empty).
+  const { data: me } = useMe()
+  const seeded = useRef(false)
+  useEffect(() => {
+    // Seed exactly once, on the first `me` resolution — never on later refetches.
+    // A campus the user deliberately clears returns the field to its empty shape,
+    // so a re-run would silently re-apply the cleared campus.
+    if (!me || seeded.current) return
+    seeded.current = true
+    if (me.college) setCollege({ college_id: me.college.id ?? null, college_other: null, college: me.college })
+    else if (me.college_other) setCollege({ college_id: null, college_other: me.college_other, college: null })
+  }, [me])
 
   const { mutate, isPending, error } = useMutation({
     // API: POST /listings — returns { listing, passkey } (passkey shown once)
@@ -57,6 +77,9 @@ export default function CreateListingForm() {
       edition: fd.get('edition') || undefined,
       state: fd.get('state'),
       city: fd.get('city'),
+      // At most one of these is set (the combobox enforces it); send only what's chosen.
+      college_id: college.college_id || undefined,
+      college_other: college.college_other || undefined,
       images,
     })
   }
@@ -201,6 +224,14 @@ export default function CreateListingForm() {
                   <option key={d} value={d}>{d}</option>
                 ))}
               </select>
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="label">College</label>
+              <CollegeCombobox value={college} onChange={setCollege} />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Optional — auto-filled from your profile. Buyers can find listings from their own campus.
+              </p>
             </div>
           </StaggerItem>
 

@@ -1,6 +1,7 @@
 import logging
-from sqlalchemy import Boolean, CheckConstraint, Column, Integer, Numeric, String, TIMESTAMP, text
+from sqlalchemy import Boolean, CheckConstraint, Column, ForeignKey, Integer, Numeric, String, TIMESTAMP, text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,9 @@ class User(Base):
     full_name     = Column(String, nullable=False)
     state         = Column(String)  # state/UT (igod); nullable
     city          = Column(String)  # district within `state` (igod); nullable
+    # colleges lives in the public schema (default search_path), like Listing -> reference "colleges.id".
+    college_id    = Column(UUID(as_uuid=True), ForeignKey("colleges.id", ondelete="SET NULL"))  # canonical campus; nullable
+    college_other = Column(String)  # free-text campus not yet in `colleges`; display-only, never filtered
     avatar_url    = Column(String)
     # Verification badge — earned, not granted at signup: True once books_sold >= 10
     # verified transactions. Set in the verify-passkey path; no longer set by the trigger.
@@ -36,3 +40,6 @@ class User(Base):
         ),
         {"schema": "public"},
     )
+
+    # Canonical campus, eager-loaded so UserMe/UserPublic can embed CollegeBrief.
+    college = relationship("College", lazy="selectin")

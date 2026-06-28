@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { MapPin, BookOpen, Clock } from 'lucide-react'
+import { MapPin, BookOpen, Clock, GraduationCap } from 'lucide-react'
 import PriceBlock from '@/components/shared/price-block'
 import { ConditionBadge, ListingTypeBadge } from '@/components/shared/badges'
 import { cn, listingStatus, isOptimizedImageHost, formatRelativeTime, formatDate } from '@/lib/utils'
@@ -71,6 +71,19 @@ export default function ListingCard({ listing, className }) {
             {EXAM_CATEGORY_LABEL[listing.exam_category] ?? listing.exam_category}
           </span>
         </div>
+
+        {/* College chip. The whole card is already a <Link>, so nesting an <a> here
+            is invalid HTML — render a non-interactive chip on the card; the canonical
+            campus link lives on the detail/profile pages. */}
+        {(listing.college || listing.college_other) && (
+          <span
+            className="inline-flex max-w-full items-center gap-1 self-start rounded-full border border-light_bronze-700 bg-papaya_whip-800 px-2 py-0.5 text-[11px] font-medium text-light_bronze-200"
+            title={listing.college?.name || listing.college_other}
+          >
+            <GraduationCap className="h-3 w-3 shrink-0" />
+            <span className="truncate">{listing.college?.name || listing.college_other}</span>
+          </span>
+        )}
       </div>
     </Link>
   )

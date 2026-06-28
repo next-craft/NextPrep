@@ -20,6 +20,7 @@ import { YEARS } from '@/constants/years'
 import { LISTING_TYPE_LABEL } from '@/lib/utils'
 import { EXAM_CATEGORY_LABEL } from '@/constants/examCategories'
 import ImageUploader from '@/components/listings/ImageUploader'
+import CollegeCombobox from '@/components/listings/CollegeCombobox'
 
 /** Edit a listing's mutable fields. listing_type + exam_category are locked
  *  (the PATCH schema doesn't accept them — anti bait-and-switch). */
@@ -37,6 +38,12 @@ export default function EditListingDialog({ listing, open, onOpenChange, onSaved
     city: listing.city || '',
   })
   const [images, setImages] = useState(listing.images || [])
+  // Seed the campus from the listing's embedded college (canonical) or its free text.
+  const [college, setCollege] = useState({
+    college_id: listing.college?.id ?? null,
+    college_other: listing.college ? null : listing.college_other || null,
+    college: listing.college || null,
+  })
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
   // Changing the state resets the city, since districts are state-specific.
   const setState = (e) => setForm((f) => ({ ...f, state: e.target.value, city: '' }))
@@ -68,6 +75,10 @@ export default function EditListingDialog({ listing, open, onOpenChange, onSaved
       condition: form.condition,
       state: form.state,
       city: form.city,
+      // At most one is set (combobox-enforced). Send both as null-or-value so the
+      // owner can also clear the campus; the backend clears the counterpart field.
+      college_id: college.college_id || null,
+      college_other: college.college_other || null,
       images,
     })
   }
@@ -166,6 +177,11 @@ export default function EditListingDialog({ listing, open, onOpenChange, onSaved
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="label">College</label>
+            <CollegeCombobox value={college} onChange={setCollege} />
           </div>
 
           <div>

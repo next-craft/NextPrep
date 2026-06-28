@@ -2,9 +2,10 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.constants.locations import is_valid_state, is_valid_city
+from app.schemas.college import CollegeBrief
 
 
 class UserMe(BaseModel):
@@ -14,6 +15,8 @@ class UserMe(BaseModel):
     full_name: str
     state: Optional[str] = None
     city: Optional[str] = None
+    college: Optional[CollegeBrief] = None  # canonical campus brief; raw college_id never exposed
+    college_other: Optional[str] = None  # un-promoted free-text campus, display-only
     avatar_url: Optional[str] = None
     is_verified: bool  # verification badge — earned at 10 verified sales
     seller_rating: Optional[float] = None
@@ -29,6 +32,8 @@ class UserPublic(BaseModel):
     full_name: str
     state: Optional[str] = None
     city: Optional[str] = None
+    college: Optional[CollegeBrief] = None  # canonical campus brief; raw college_id never exposed
+    college_other: Optional[str] = None  # un-promoted free-text campus, display-only
     avatar_url: Optional[str] = None
     is_verified: bool  # verification badge — earned at 10 verified sales
     seller_rating: Optional[float] = None
@@ -41,6 +46,8 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     state: Optional[str] = None
     city: Optional[str] = None
+    college_id: Optional[uuid.UUID] = None
+    college_other: Optional[str] = Field(None, max_length=120)
     avatar_url: Optional[str] = None
 
     @field_validator("full_name")
@@ -65,4 +72,18 @@ class UserUpdate(BaseModel):
         # Settings submits state + city together. Validate the pair only when both are set.
         if self.state and self.city and not is_valid_city(self.state, self.city):
             raise ValueError(f"city must be a district of {self.state}")
+        return self
+
+    @field_validator("college_other")
+    @classmethod
+    def clean_college_other(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip()
+        return v or None
+
+    @model_validator(mode="after")
+    def one_college_source(self):
+        if self.college_id is not None and self.college_other:
+            raise ValueError("Provide either college_id or college_other, not both.")
         return self

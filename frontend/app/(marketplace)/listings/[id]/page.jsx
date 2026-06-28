@@ -2,7 +2,7 @@ import { cache } from 'react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { MapPin, Eye, BadgeCheck, ChevronRight, ShieldCheck, Settings, Clock } from 'lucide-react'
+import { MapPin, Eye, BadgeCheck, ChevronRight, ShieldCheck, Settings, Clock, GraduationCap } from 'lucide-react'
 import { conditionMeta, listingStatus, formatPrice, LISTING_TYPE_LABEL, formatRelativeTime, formatDate } from '@/lib/utils'
 import { EXAM_CATEGORY_LABEL } from '@/constants/examCategories'
 import JsonLd from '@/components/shared/json-ld'
@@ -242,6 +242,25 @@ export default async function ListingDetailPage({ params }) {
                     </span>
                   </>
                 )}
+                {/* Campus: canonical → links to the college community page; free text → unlinked. */}
+                {listing.college ? (
+                  <>
+                    <Dot />
+                    <Link
+                      href={`/colleges/${listing.college.slug}`}
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:text-light_bronze-200"
+                    >
+                      <GraduationCap className="h-4 w-4" /> {listing.college.name}
+                    </Link>
+                  </>
+                ) : listing.college_other ? (
+                  <>
+                    <Dot />
+                    <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <GraduationCap className="h-4 w-4" /> {listing.college_other}
+                    </span>
+                  </>
+                ) : null}
               </StaggerItem>
 
               <StaggerItem>
