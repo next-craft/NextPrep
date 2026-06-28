@@ -111,6 +111,9 @@ export default async function Home() {
                   >
                     Sell material
                   </Link>
+                  <Link href="/colleges" className="btn-secondary px-6 text-base">
+                    Browse by college
+                  </Link>
                 </>
               ) : (
                 <>
@@ -122,6 +125,9 @@ export default async function Home() {
                     className="btn-secondary px-6 text-base"
                   >
                     Browse listings
+                  </Link>
+                  <Link href="/colleges" className="btn-secondary px-6 text-base">
+                    Browse by college
                   </Link>
                 </>
               )}
